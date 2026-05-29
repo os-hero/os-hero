@@ -51,7 +51,7 @@ const {
 
 const APP_NAME = "OS Hero";
 const LEGACY_APP_NAME = "OS Boy";
-const DEVELOPER = "이요한";
+const DEVELOPER = "이충복";
 const CONTACT = "themercenary@duck.com";
 
 app.setName(APP_NAME);

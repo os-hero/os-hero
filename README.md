@@ -122,15 +122,15 @@ macOS:
 
 ```text
 latest-mac.yml
-OS Hero-0.1.11-arm64-mac.zip
-OS Hero-0.1.11-arm64.dmg
+OS Hero-0.1.12-arm64-mac.zip
+OS Hero-0.1.12-arm64.dmg
 ```
 
 Windows:
 
 ```text
 latest.yml
-OS Hero Setup 0.1.11.exe
+OS Hero Setup 0.1.12.exe
 ```
 
 Release deployment flow:
@@ -210,7 +210,7 @@ Stored character shape:
     "clothes": "default_clothes",
     "tool": null
   },
-  "version": "0.1.11"
+  "version": "0.1.12"
 }
 ```
 
@@ -220,7 +220,7 @@ Stored settings shape:
 {
   "launchAtLogin": false,
   "language": "en",
-  "version": "0.1.11"
+  "version": "0.1.12"
 }
 ```
 
@@ -240,7 +240,7 @@ Stored quests shape:
       "createdAt": "2026-05-30T00:00:00.000Z",
       "updatedAt": "2026-05-30T00:00:00.000Z",
       "notifiedAt": null,
-      "version": "0.1.11"
+      "version": "0.1.12"
     }
   ]
 }
