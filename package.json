@@ -1,0 +1,80 @@
+{
+  "name": "os-hero",
+  "version": "0.1.10",
+  "description": "OS Hero tray/menu bar pixel character app",
+  "main": "src/main/main.js",
+  "author": "The Mercenary",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win --x64",
+    "deploy:updates": "node scripts/deploy-updates.js"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.3",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "electron": "40.10.2",
+    "electron-builder": "26.6.0"
+  },
+  "build": {
+    "appId": "com.themercenary.oshero",
+    "productName": "OS Hero",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "electronLanguages": [
+      "en",
+      "en-US",
+      "en_FEMININE",
+      "en_MASCULINE",
+      "en_NEUTER",
+      "ko",
+      "ko_FEMININE",
+      "ko_MASCULINE",
+      "ko_NEUTER",
+      "zh-CN",
+      "zh_CN",
+      "zh_CN_FEMININE",
+      "zh_CN_MASCULINE",
+      "zh_CN_NEUTER"
+    ],
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://os-hero.github.io/updates/"
+      }
+    ],
+    "files": [
+      "package.json",
+      "src/**/*",
+      "public/**/*"
+    ],
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
