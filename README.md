@@ -122,15 +122,15 @@ macOS:
 
 ```text
 latest-mac.yml
-OS Hero-0.1.10-arm64-mac.zip
-OS Hero-0.1.10-arm64.dmg
+OS Hero-0.1.11-arm64-mac.zip
+OS Hero-0.1.11-arm64.dmg
 ```
 
 Windows:
 
 ```text
 latest.yml
-OS Hero Setup 0.1.10.exe
+OS Hero Setup 0.1.11.exe
 ```
 
 Release deployment flow:
@@ -210,7 +210,7 @@ Stored character shape:
     "clothes": "default_clothes",
     "tool": null
   },
-  "version": "0.1.10"
+  "version": "0.1.11"
 }
 ```
 
@@ -220,7 +220,7 @@ Stored settings shape:
 {
   "launchAtLogin": false,
   "language": "en",
-  "version": "0.1.10"
+  "version": "0.1.11"
 }
 ```
 
@@ -240,7 +240,7 @@ Stored quests shape:
       "createdAt": "2026-05-30T00:00:00.000Z",
       "updatedAt": "2026-05-30T00:00:00.000Z",
       "notifiedAt": null,
-      "version": "0.1.10"
+      "version": "0.1.11"
     }
   ]
 }
@@ -343,6 +343,19 @@ Settings.
 Quest status values are `todo`, `in_progress`, `done`, and `on_hold`. Status can
 be changed from the quest table, the read-only detail view, or the edit form.
 Quest data is stored in `quests.json`.
+
+When a reminder is saved, OS Hero checks notification support and requests
+notification permission through the renderer's Web Notifications API if needed.
+If permission is denied, the reminder is not saved until the user allows OS Hero
+notifications in system settings. At delivery time, the app records a reminder
+as notified only after Electron reports that the OS notification was shown.
+
+Platform notes:
+
+- macOS requires notification permission. Production builds should be signed so
+  notification click events are reliable.
+- Windows does not show the same app-level permission prompt, but notifications
+  can still be blocked by system notification settings, Focus Assist, or policy.
 
 ## Implemented MVP Scope
 

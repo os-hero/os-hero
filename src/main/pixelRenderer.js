@@ -268,7 +268,7 @@ function gridToPngBuffer(grid, scale) {
 }
 
 function renderCharacterBuffer(characterInput, frameIndex = 0, scale = 2) {
-  const character = normalizeCharacter(characterInput, (characterInput && characterInput.version) || "0.1.10");
+  const character = normalizeCharacter(characterInput, (characterInput && characterInput.version) || "0.1.11");
   const grid = createGrid();
   const bob = [0, 0, 1, 0][frameIndex % 4];
 

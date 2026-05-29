@@ -456,6 +456,34 @@ function fromDateTimeLocal(value) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+async function ensureNotificationPermission() {
+  if (!("Notification" in window) || typeof window.Notification.requestPermission !== "function") {
+    return {
+      granted: false,
+      message: text("quest.validation.notificationUnsupported")
+    };
+  }
+
+  if (window.Notification.permission === "granted") {
+    return { granted: true, message: "" };
+  }
+
+  if (window.Notification.permission === "denied") {
+    return {
+      granted: false,
+      message: text("quest.validation.notificationDenied")
+    };
+  }
+
+  const permission = await window.Notification.requestPermission();
+  return permission === "granted"
+    ? { granted: true, message: "" }
+    : {
+        granted: false,
+        message: text("quest.validation.notificationDenied")
+      };
+}
+
 function renderQuestStatusSelect(quest) {
   if (!questHasStatus(quest)) {
     return `<span>${textHtml("quest.noStatus")}</span>`;
@@ -730,6 +758,16 @@ function renderQuestForm() {
 
     if (type === "reminder") {
       payload.remindAt = fromDateTimeLocal(document.getElementById("quest-remind-at").value);
+      if (!payload.remindAt) {
+        errorText.textContent = text("quest.validation.remindAt");
+        return;
+      }
+
+      const permission = await ensureNotificationPermission();
+      if (!permission.granted) {
+        errorText.textContent = permission.message;
+        return;
+      }
     }
 
     try {

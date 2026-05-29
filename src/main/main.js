@@ -373,7 +373,7 @@ function scheduleReminder(quest) {
       scheduleReminder(quest);
       return;
     }
-    fireReminder(quest.id);
+    void fireReminder(quest.id);
   }, Math.min(delay, maxDelay));
 
   reminderTimers.set(quest.id, timer);
@@ -404,23 +404,51 @@ function openQuestDetailWindow(questId) {
   }
 }
 
-function fireReminder(questId) {
-  const quest = findQuest(questId);
-  if (!quest || quest.type !== "reminder" || quest.notifiedAt) {
-    return;
-  }
+function showReminderNotification(quest) {
+  return new Promise((resolve) => {
+    if (typeof Notification.isSupported === "function" && !Notification.isSupported()) {
+      resolve(false);
+      return;
+    }
 
-  if (typeof Notification.isSupported !== "function" || Notification.isSupported()) {
     const notification = new Notification({
       title: t("quest.notificationTitle"),
       body: quest.title,
       icon: getAppIcon()
     });
 
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(false);
+      }
+    }, 2000);
+
+    notification.once("show", () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeout);
+        resolve(true);
+      }
+    });
+
     notification.on("click", () => {
       openQuestDetailWindow(quest.id);
     });
     notification.show();
+  });
+}
+
+async function fireReminder(questId) {
+  const quest = findQuest(questId);
+  if (!quest || quest.type !== "reminder" || quest.notifiedAt) {
+    return;
+  }
+
+  const shown = await showReminderNotification(quest);
+  if (!shown) {
+    return;
   }
 
   saveQuestRecords(
