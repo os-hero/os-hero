@@ -1,6 +1,6 @@
 {
   "name": "os-hero",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "OS Hero tray/menu bar pixel character app",
   "main": "src/main/main.js",
   "author": "The Mercenary",
