@@ -394,7 +394,6 @@ function renderInventory() {
       });
       render();
     });
-    requestWindowFit();
   };
 
   render();
