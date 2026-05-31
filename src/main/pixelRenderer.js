@@ -157,10 +157,12 @@ function drawLegs(grid, bob, pantsColor) {
 
 function drawClothesLayer(grid, character, bob, frameIndex) {
   const style = getClothesStyle(character);
+  const clothesId = character.equipped.clothes;
   const torsoY = 12 + bob;
   const expanded = frameIndex % 4 === 1;
   const shirtShade = darken(style.shirt, 0.16);
   const pantsShade = darken(style.pants, 0.18);
+  const trim = style.trim || style.accent;
 
   drawSleeves(grid, style, torsoY, expanded);
 
@@ -170,7 +172,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
   drawRect(grid, 7, torsoY + 1, 10, 5, style.shirt);
   drawRect(grid, 7, torsoY + 5, 10, 1, shirtShade);
 
-  if (character.equipped.clothes === "blue_overalls") {
+  if (clothesId === "blue_overalls") {
     drawRect(grid, 8, torsoY + 1, 2, 5, style.pants);
     drawRect(grid, 14, torsoY + 1, 2, 5, style.pants);
     drawRect(grid, 9, torsoY + 3, 6, 3, style.pants);
@@ -181,7 +183,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
     return;
   }
 
-  if (character.equipped.clothes === "green_tunic") {
+  if (clothesId === "green_tunic") {
     drawRect(grid, 6, torsoY + 5, 12, 2, style.shirt);
     drawRect(grid, 7, torsoY + 4, 10, 1, style.accent);
     drawPixelPattern(
@@ -196,6 +198,161 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
     );
     setPixel(grid, 11, torsoY + 1, style.accent);
     setPixel(grid, 12, torsoY + 1, style.accent);
+    drawLegs(grid, bob, style.pants);
+    return;
+  }
+
+  if (["wizard_robe", "royal_robe", "cleric_robes"].includes(clothesId)) {
+    drawRect(grid, 6, torsoY + 5, 12, 5, OUTLINE);
+    drawRect(grid, 7, torsoY + 5, 10, 4, style.shirt);
+    drawRect(grid, 8, torsoY + 9, 8, 1, style.pants);
+    drawRect(grid, 11, torsoY + 1, 2, 8, trim);
+    drawPixelPattern(
+      grid,
+      [
+        [9, torsoY + 2],
+        [14, torsoY + 2],
+        [8, torsoY + 5],
+        [15, torsoY + 5],
+        [10, torsoY + 7],
+        [13, torsoY + 7]
+      ],
+      style.accent
+    );
+    drawRect(grid, 6, 22, 12, 1, OUTLINE);
+    return;
+  }
+
+  if (clothesId === "princess_dress") {
+    drawPixelPattern(
+      grid,
+      [
+        [8, torsoY + 1],
+        [15, torsoY + 1],
+        [7, torsoY + 2],
+        [16, torsoY + 2]
+      ],
+      trim
+    );
+    drawRect(grid, 5, torsoY + 6, 14, 5, OUTLINE);
+    drawRect(grid, 6, torsoY + 6, 12, 4, style.shirt);
+    drawRect(grid, 8, torsoY + 10, 8, 1, style.pants);
+    drawRect(grid, 7, torsoY + 7, 10, 1, style.accent);
+    drawPixelPattern(
+      grid,
+      [
+        [10, torsoY + 3],
+        [13, torsoY + 3],
+        [9, torsoY + 8],
+        [14, torsoY + 8]
+      ],
+      trim
+    );
+    return;
+  }
+
+  if (clothesId === "knight_armor") {
+    drawRect(grid, 7, torsoY + 1, 10, 1, style.accent);
+    drawRect(grid, 8, torsoY + 3, 8, 2, trim);
+    drawRect(grid, 10, torsoY + 1, 4, 5, darken(style.shirt, 0.08));
+    drawRect(grid, 11, torsoY + 1, 2, 5, lighten(style.shirt, 0.12));
+    drawPixelPattern(
+      grid,
+      [
+        [7, torsoY + 2],
+        [16, torsoY + 2],
+        [9, torsoY + 5],
+        [14, torsoY + 5]
+      ],
+      OUTLINE
+    );
+    drawLegs(grid, bob, style.pants);
+    return;
+  }
+
+  if (["rogue_cloak", "ninja_suit", "ranger_hoodie", "pirate_coat"].includes(clothesId)) {
+    drawRect(grid, 5, torsoY + 1, 3, 8, OUTLINE);
+    drawRect(grid, 16, torsoY + 1, 3, 8, OUTLINE);
+    drawRect(grid, 6, torsoY + 1, 2, 7, darken(style.shirt, 0.12));
+    drawRect(grid, 16, torsoY + 1, 2, 7, darken(style.shirt, 0.18));
+    drawRect(grid, 7, torsoY + 4, 10, 1, trim);
+    drawRect(grid, 11, torsoY + 1, 2, 5, style.accent);
+    if (clothesId === "pirate_coat") {
+      setPixel(grid, 8, torsoY + 2, style.accent);
+      setPixel(grid, 15, torsoY + 2, style.accent);
+      drawRect(grid, 9, torsoY + 5, 6, 1, trim);
+    }
+    if (clothesId === "ninja_suit") {
+      drawRect(grid, 9, torsoY + 2, 6, 1, trim);
+    }
+    drawLegs(grid, bob, style.pants);
+    return;
+  }
+
+  if (clothesId === "dragon_suit") {
+    drawRect(grid, 10, torsoY + 1, 4, 5, style.accent);
+    drawPixelPattern(
+      grid,
+      [
+        [8, torsoY + 2],
+        [15, torsoY + 2],
+        [9, torsoY + 4],
+        [14, torsoY + 4],
+        [20, torsoY + 5],
+        [21, torsoY + 6],
+        [20, torsoY + 7]
+      ],
+      trim
+    );
+    drawRect(grid, 19, torsoY + 4, 3, 5, OUTLINE);
+    drawRect(grid, 20, torsoY + 5, 1, 3, style.shirt);
+    drawLegs(grid, bob, style.pants);
+    return;
+  }
+
+  if (clothesId === "space_suit") {
+    drawRect(grid, 8, torsoY + 1, 8, 4, lighten(style.shirt, 0.08));
+    drawRect(grid, 9, torsoY + 2, 6, 2, style.accent);
+    drawRect(grid, 7, torsoY + 5, 10, 1, trim);
+    setPixel(grid, 16, torsoY + 2, trim);
+    setPixel(grid, 7, torsoY + 2, trim);
+    drawLegs(grid, bob, style.pants);
+    return;
+  }
+
+  if (clothesId === "devil_suit") {
+    drawRect(grid, 7, torsoY + 4, 10, 1, trim);
+    drawRect(grid, 11, torsoY + 1, 2, 5, style.accent);
+    drawPixelPattern(
+      grid,
+      [
+        [4, torsoY],
+        [3, torsoY - 1],
+        [19, torsoY],
+        [20, torsoY - 1],
+        [20, torsoY + 5],
+        [21, torsoY + 6],
+        [20, torsoY + 7]
+      ],
+      style.accent
+    );
+    drawLegs(grid, bob, style.pants);
+    return;
+  }
+
+  if (clothesId === "barbarian_armor") {
+    drawRect(grid, 7, torsoY + 1, 10, 2, style.accent);
+    drawRect(grid, 7, torsoY + 4, 10, 1, trim);
+    drawPixelPattern(
+      grid,
+      [
+        [6, torsoY + 1],
+        [17, torsoY + 1],
+        [9, torsoY + 3],
+        [14, torsoY + 3]
+      ],
+      trim
+    );
     drawLegs(grid, bob, style.pants);
     return;
   }
@@ -340,6 +497,343 @@ function drawHeadLayer(grid, character, bob) {
       accent
     );
   }
+
+  if (item.id === "spiky_hair") {
+    drawPixelPattern(
+      grid,
+      [
+        [7, headY - 2],
+        [10, headY - 2],
+        [13, headY - 2],
+        [16, headY - 2],
+        [6, headY - 1],
+        [8, headY - 1],
+        [11, headY - 1],
+        [14, headY - 1],
+        [17, headY - 1]
+      ],
+      OUTLINE
+    );
+    drawRect(grid, 6, headY, 12, 2, OUTLINE);
+    drawRect(grid, 5, headY + 2, 4, 3, OUTLINE);
+    drawRect(grid, 15, headY + 2, 4, 2, OUTLINE);
+    drawPixelPattern(
+      grid,
+      [
+        [7, headY - 1],
+        [10, headY - 1],
+        [13, headY - 1],
+        [16, headY - 1],
+        [6, headY],
+        [8, headY],
+        [11, headY],
+        [14, headY],
+        [17, headY]
+      ],
+      primary
+    );
+    drawRect(grid, 6, headY + 1, 11, 1, primary);
+    drawRect(grid, 5, headY + 2, 3, 2, shade);
+    drawRect(grid, 16, headY + 2, 2, 1, accent);
+  }
+
+  if (item.id === "side_part_hair") {
+    drawRect(grid, 7, headY - 1, 10, 1, OUTLINE);
+    drawRect(grid, 5, headY, 14, 3, OUTLINE);
+    drawRect(grid, 5, headY + 3, 3, 4, OUTLINE);
+    drawRect(grid, 16, headY + 2, 3, 4, OUTLINE);
+    drawRect(grid, 7, headY - 1, 9, 1, light);
+    drawRect(grid, 6, headY, 12, 2, primary);
+    drawRect(grid, 6, headY + 2, 5, 1, accent);
+    drawRect(grid, 5, headY + 3, 2, 3, shade);
+    drawRect(grid, 16, headY + 2, 2, 3, shade);
+    drawPixelPattern(
+      grid,
+      [
+        [9, headY + 1],
+        [10, headY + 2],
+        [11, headY + 2]
+      ],
+      light
+    );
+  }
+
+  if (item.id === "mohawk_hair") {
+    drawRect(grid, 10, headY - 3, 4, 5, OUTLINE);
+    drawRect(grid, 6, headY + 1, 12, 2, OUTLINE);
+    drawRect(grid, 5, headY + 3, 3, 3, OUTLINE);
+    drawRect(grid, 16, headY + 3, 3, 3, OUTLINE);
+    drawRect(grid, 11, headY - 2, 2, 4, primary);
+    drawRect(grid, 12, headY - 2, 1, 4, light);
+    drawRect(grid, 6, headY + 1, 12, 1, shade);
+    drawRect(grid, 5, headY + 3, 2, 2, shade);
+    drawRect(grid, 17, headY + 3, 1, 2, shade);
+    setPixel(grid, 12, headY, accent);
+  }
+
+  if (item.id === "curly_hair") {
+    drawPixelPattern(
+      grid,
+      [
+        [7, headY - 1],
+        [9, headY - 2],
+        [12, headY - 2],
+        [15, headY - 1],
+        [5, headY + 1],
+        [18, headY + 1],
+        [5, headY + 4],
+        [18, headY + 4]
+      ],
+      OUTLINE
+    );
+    drawRect(grid, 6, headY, 12, 3, OUTLINE);
+    drawRect(grid, 5, headY + 2, 4, 5, OUTLINE);
+    drawRect(grid, 15, headY + 2, 4, 5, OUTLINE);
+    drawRect(grid, 7, headY, 10, 2, primary);
+    drawRect(grid, 6, headY + 2, 3, 4, primary);
+    drawRect(grid, 15, headY + 2, 3, 4, primary);
+    drawPixelPattern(
+      grid,
+      [
+        [8, headY],
+        [11, headY + 1],
+        [14, headY],
+        [6, headY + 3],
+        [17, headY + 3]
+      ],
+      accent
+    );
+  }
+
+  if (item.id === "ponytail_hair") {
+    drawRect(grid, 6, headY - 1, 12, 2, OUTLINE);
+    drawRect(grid, 5, headY + 1, 4, 6, OUTLINE);
+    drawRect(grid, 15, headY + 1, 4, 5, OUTLINE);
+    drawRect(grid, 18, headY + 4, 4, 8, OUTLINE);
+    drawRect(grid, 7, headY - 1, 10, 2, primary);
+    drawRect(grid, 6, headY + 1, 3, 5, primary);
+    drawRect(grid, 15, headY + 1, 3, 4, primary);
+    drawRect(grid, 19, headY + 5, 2, 6, primary);
+    drawRect(grid, 19, headY + 10, 2, 1, shade);
+    drawPixelPattern(
+      grid,
+      [
+        [18, headY + 4],
+        [20, headY + 7],
+        [8, headY + 1],
+        [14, headY + 1]
+      ],
+      accent
+    );
+  }
+
+  if (item.id === "princess_hair") {
+    drawRect(grid, 6, headY - 1, 12, 2, OUTLINE);
+    drawRect(grid, 4, headY + 1, 5, 11, OUTLINE);
+    drawRect(grid, 15, headY + 1, 5, 11, OUTLINE);
+    drawRect(grid, 6, headY + 8, 12, 5, OUTLINE);
+    drawRect(grid, 7, headY - 1, 10, 2, primary);
+    drawRect(grid, 5, headY + 1, 4, 10, primary);
+    drawRect(grid, 15, headY + 1, 4, 10, primary);
+    drawRect(grid, 7, headY + 9, 10, 3, primary);
+    drawRect(grid, 6, headY + 4, 2, 6, light);
+    drawRect(grid, 16, headY + 4, 2, 6, shade);
+    drawPixelPattern(
+      grid,
+      [
+        [8, headY + 1],
+        [9, headY + 2],
+        [14, headY + 1],
+        [15, headY + 2],
+        [10, headY + 10],
+        [13, headY + 10]
+      ],
+      accent
+    );
+  }
+
+  if (item.id === "short_bangs") {
+    drawRect(grid, 7, headY - 1, 10, 1, OUTLINE);
+    drawRect(grid, 5, headY, 14, 3, OUTLINE);
+    drawRect(grid, 5, headY + 2, 3, 5, OUTLINE);
+    drawRect(grid, 16, headY + 2, 3, 5, OUTLINE);
+    drawRect(grid, 7, headY - 1, 10, 1, primary);
+    drawRect(grid, 6, headY, 12, 2, primary);
+    drawRect(grid, 6, headY + 2, 2, 4, shade);
+    drawRect(grid, 16, headY + 2, 2, 4, shade);
+    drawPixelPattern(
+      grid,
+      [
+        [8, headY + 2],
+        [10, headY + 2],
+        [12, headY + 2],
+        [14, headY + 2],
+        [16, headY + 2]
+      ],
+      accent
+    );
+  }
+
+  if (item.id === "braided_hair") {
+    drawRect(grid, 6, headY - 1, 12, 2, OUTLINE);
+    drawRect(grid, 4, headY + 1, 5, 8, OUTLINE);
+    drawRect(grid, 15, headY + 1, 5, 8, OUTLINE);
+    drawRect(grid, 3, headY + 8, 4, 7, OUTLINE);
+    drawRect(grid, 17, headY + 8, 4, 7, OUTLINE);
+    drawRect(grid, 7, headY - 1, 10, 2, primary);
+    drawRect(grid, 5, headY + 1, 4, 7, primary);
+    drawRect(grid, 15, headY + 1, 4, 7, primary);
+    drawRect(grid, 4, headY + 9, 2, 5, primary);
+    drawRect(grid, 18, headY + 9, 2, 5, primary);
+    drawPixelPattern(
+      grid,
+      [
+        [4, headY + 9],
+        [5, headY + 11],
+        [4, headY + 13],
+        [18, headY + 9],
+        [19, headY + 11],
+        [18, headY + 13]
+      ],
+      accent
+    );
+  }
+
+  if (item.id === "wizard_hat") {
+    drawPixelPattern(
+      grid,
+      [
+        [12, headY - 4],
+        [11, headY - 3],
+        [12, headY - 3],
+        [13, headY - 3],
+        [10, headY - 2],
+        [11, headY - 2],
+        [12, headY - 2],
+        [13, headY - 2],
+        [14, headY - 2]
+      ],
+      OUTLINE
+    );
+    drawRect(grid, 6, headY - 1, 13, 2, OUTLINE);
+    drawRect(grid, 11, headY - 3, 3, 1, primary);
+    drawRect(grid, 10, headY - 2, 5, 1, primary);
+    drawRect(grid, 7, headY - 1, 11, 1, primary);
+    drawRect(grid, 9, headY, 8, 1, primary);
+    drawPixelPattern(grid, [[8, headY], [13, headY - 2], [16, headY - 1]], accent);
+  }
+
+  if (item.id === "gold_crown") {
+    drawPixelPattern(
+      grid,
+      [
+        [6, headY - 2],
+        [8, headY - 3],
+        [12, headY - 3],
+        [16, headY - 3],
+        [18, headY - 2],
+        [6, headY - 1],
+        [18, headY - 1]
+      ],
+      OUTLINE
+    );
+    drawRect(grid, 7, headY - 1, 11, 2, OUTLINE);
+    drawPixelPattern(
+      grid,
+      [
+        [7, headY - 2],
+        [8, headY - 2],
+        [12, headY - 2],
+        [16, headY - 2],
+        [17, headY - 2]
+      ],
+      primary
+    );
+    drawRect(grid, 7, headY - 1, 11, 1, primary);
+    drawRect(grid, 8, headY, 9, 1, darken(primary, 0.08));
+    setPixel(grid, 12, headY - 1, accent);
+    setPixel(grid, 9, headY - 1, "#5FC9F3");
+    setPixel(grid, 15, headY - 1, "#5FC9F3");
+  }
+
+  if (item.id === "knight_helmet") {
+    drawRect(grid, 6, headY - 1, 12, 2, OUTLINE);
+    drawRect(grid, 5, headY + 1, 14, 7, OUTLINE);
+    drawRect(grid, 7, headY - 1, 10, 2, primary);
+    drawRect(grid, 6, headY + 1, 12, 6, primary);
+    drawRect(grid, 8, headY + 4, 8, 3, character.bodyColor);
+    drawRect(grid, 10, headY + 1, 4, 6, accent);
+    drawPixelPattern(
+      grid,
+      [
+        [7, headY + 2],
+        [16, headY + 2],
+        [9, headY + 3],
+        [14, headY + 3]
+      ],
+      shade
+    );
+  }
+
+  if (item.id === "pirate_hat") {
+    drawRect(grid, 5, headY - 2, 14, 2, OUTLINE);
+    drawRect(grid, 7, headY - 4, 10, 3, OUTLINE);
+    drawRect(grid, 6, headY - 2, 12, 1, primary);
+    drawRect(grid, 8, headY - 3, 8, 2, primary);
+    drawRect(grid, 9, headY - 1, 6, 1, darken(primary, 0.12));
+    drawPixelPattern(
+      grid,
+      [
+        [11, headY - 2],
+        [12, headY - 2],
+        [10, headY - 3],
+        [13, headY - 3]
+      ],
+      accent
+    );
+  }
+
+  if (item.id === "horned_helm") {
+    drawRect(grid, 7, headY - 1, 10, 2, OUTLINE);
+    drawRect(grid, 5, headY + 1, 14, 6, OUTLINE);
+    drawPixelPattern(
+      grid,
+      [
+        [3, headY - 1],
+        [4, headY],
+        [5, headY + 1],
+        [20, headY - 1],
+        [19, headY],
+        [18, headY + 1]
+      ],
+      OUTLINE
+    );
+    drawRect(grid, 8, headY - 1, 8, 2, primary);
+    drawRect(grid, 6, headY + 1, 12, 5, primary);
+    drawRect(grid, 8, headY + 4, 8, 2, character.bodyColor);
+    drawPixelPattern(
+      grid,
+      [
+        [4, headY],
+        [5, headY + 1],
+        [19, headY],
+        [18, headY + 1]
+      ],
+      accent
+    );
+    drawRect(grid, 10, headY + 1, 4, 4, light);
+  }
+
+  if (item.id === "ninja_hood") {
+    drawRect(grid, 6, headY - 1, 12, 2, OUTLINE);
+    drawRect(grid, 5, headY + 1, 14, 9, OUTLINE);
+    drawRect(grid, 7, headY - 1, 10, 2, primary);
+    drawRect(grid, 6, headY + 1, 12, 8, primary);
+    drawRect(grid, 8, headY + 4, 8, 3, character.bodyColor);
+    drawRect(grid, 8, headY + 6, 8, 1, primary);
+    drawRect(grid, 5, headY + 8, 14, 2, shade);
+    setPixel(grid, 16, headY + 2, accent);
+  }
 }
 
 function drawEyeLayer(grid, character, bob) {
@@ -371,6 +865,34 @@ function drawEyeLayer(grid, character, bob) {
   if (eyeType === "sleepy") {
     drawRect(grid, 8, eyeY, 4, 1, OUTLINE);
     drawRect(grid, 13, eyeY, 4, 1, OUTLINE);
+    return;
+  }
+
+  if (eyeType === "focused") {
+    drawPixelPattern(
+      grid,
+      [
+        [8, eyeY],
+        [9, eyeY],
+        [10, eyeY + 1],
+        [15, eyeY],
+        [14, eyeY],
+        [13, eyeY + 1],
+        [9, eyeY + 2],
+        [14, eyeY + 2]
+      ],
+      OUTLINE
+    );
+    return;
+  }
+
+  if (eyeType === "bright") {
+    drawRect(grid, 8, eyeY, 3, 3, OUTLINE);
+    drawRect(grid, 13, eyeY, 3, 3, OUTLINE);
+    setPixel(grid, 9, eyeY, "#F8FBFF");
+    setPixel(grid, 14, eyeY, "#F8FBFF");
+    setPixel(grid, 10, eyeY + 2, "#6D3D24");
+    setPixel(grid, 15, eyeY + 2, "#6D3D24");
     return;
   }
 
@@ -442,6 +964,178 @@ function drawToolLayer(grid, character, bob) {
     drawRect(grid, 18, bagY + 1, 3, 4, item.style.primary);
     drawRect(grid, 18, bagY + 1, 3, 1, item.style.accent);
     setPixel(grid, 19, bagY + 3, darken(item.style.primary, 0.24));
+  }
+
+  if (item.id === "iron_sword") {
+    drawRect(grid, 20, 6 + bob, 2, 11, OUTLINE);
+    drawRect(grid, 21, 5 + bob, 1, 1, OUTLINE);
+    drawRect(grid, 20, 7 + bob, 1, 9, item.style.primary);
+    drawRect(grid, 21, 6 + bob, 1, 10, lighten(item.style.primary, 0.16));
+    drawRect(grid, 18, 15 + bob, 5, 1, item.style.accent);
+    drawRect(grid, 19, 16 + bob, 3, 2, darken(item.style.accent, 0.18));
+  }
+
+  if (item.id === "wooden_shield") {
+    drawRect(grid, 1, 13 + bob, 6, 8, OUTLINE);
+    drawRect(grid, 2, 14 + bob, 4, 6, item.style.primary);
+    drawRect(grid, 3, 14 + bob, 2, 6, lighten(item.style.primary, 0.1));
+    drawRect(grid, 2, 16 + bob, 4, 1, item.style.accent);
+    drawRect(grid, 4, 14 + bob, 1, 6, item.style.accent);
+  }
+
+  if (item.id === "magic_staff") {
+    drawRect(grid, 3, 7 + bob, 2, 14, OUTLINE);
+    drawRect(grid, 4, 7 + bob, 1, 14, item.style.primary);
+    drawRect(grid, 2, 5 + bob, 4, 4, OUTLINE);
+    drawRect(grid, 3, 6 + bob, 2, 2, item.style.accent);
+    setPixel(grid, 4, 6 + bob, lighten(item.style.accent, 0.25));
+    drawPixelPattern(grid, [[1, 6 + bob], [6, 6 + bob], [4, 4 + bob]], "#F5D547");
+  }
+
+  if (item.id === "long_bow") {
+    drawPixelPattern(
+      grid,
+      [
+        [21, 6 + bob],
+        [20, 7 + bob],
+        [20, 8 + bob],
+        [19, 9 + bob],
+        [19, 10 + bob],
+        [19, 11 + bob],
+        [20, 12 + bob],
+        [20, 13 + bob],
+        [21, 14 + bob],
+        [21, 15 + bob],
+        [20, 16 + bob],
+        [19, 17 + bob]
+      ],
+      OUTLINE
+    );
+    drawPixelPattern(grid, [[20, 7 + bob], [19, 9 + bob], [19, 13 + bob], [20, 15 + bob]], item.style.primary);
+    drawRect(grid, 21, 7 + bob, 1, 10, item.style.accent);
+    drawRect(grid, 18, 11 + bob, 5, 1, OUTLINE);
+  }
+
+  if (item.id === "battle_axe") {
+    drawRect(grid, 20, 7 + bob, 2, 13, OUTLINE);
+    drawRect(grid, 21, 8 + bob, 1, 12, item.style.accent);
+    drawRect(grid, 16, 6 + bob, 5, 5, OUTLINE);
+    drawRect(grid, 17, 7 + bob, 4, 3, item.style.primary);
+    setPixel(grid, 16, 8 + bob, item.style.primary);
+    setPixel(grid, 19, 7 + bob, lighten(item.style.primary, 0.18));
+  }
+
+  if (item.id === "steel_dagger") {
+    drawPixelPattern(
+      grid,
+      [
+        [19, 11 + bob],
+        [20, 10 + bob],
+        [21, 9 + bob],
+        [22, 8 + bob],
+        [20, 12 + bob],
+        [21, 11 + bob],
+        [22, 10 + bob]
+      ],
+      OUTLINE
+    );
+    drawPixelPattern(grid, [[20, 11 + bob], [21, 10 + bob], [22, 9 + bob]], item.style.primary);
+    drawRect(grid, 17, 13 + bob, 4, 1, item.style.accent);
+    drawRect(grid, 18, 14 + bob, 2, 2, darken(item.style.accent, 0.18));
+  }
+
+  if (item.id === "wizard_wand") {
+    drawRect(grid, 3, 10 + bob, 2, 8, OUTLINE);
+    drawRect(grid, 4, 10 + bob, 1, 8, item.style.primary);
+    drawPixelPattern(
+      grid,
+      [
+        [3, 7 + bob],
+        [4, 6 + bob],
+        [5, 7 + bob],
+        [4, 8 + bob],
+        [2, 8 + bob],
+        [6, 8 + bob]
+      ],
+      item.style.accent
+    );
+  }
+
+  if (item.id === "spellbook") {
+    drawRect(grid, 1, 13 + bob, 7, 6, OUTLINE);
+    drawRect(grid, 2, 14 + bob, 5, 4, item.style.primary);
+    drawRect(grid, 4, 14 + bob, 1, 4, darken(item.style.primary, 0.22));
+    drawRect(grid, 2, 15 + bob, 2, 1, item.style.accent);
+    drawRect(grid, 5, 16 + bob, 2, 1, item.style.accent);
+  }
+
+  if (item.id === "kite_shield") {
+    drawRect(grid, 1, 12 + bob, 6, 8, OUTLINE);
+    drawRect(grid, 2, 13 + bob, 4, 5, item.style.primary);
+    drawRect(grid, 3, 18 + bob, 2, 1, item.style.primary);
+    drawRect(grid, 3, 13 + bob, 2, 6, item.style.accent);
+    drawRect(grid, 2, 15 + bob, 4, 1, lighten(item.style.primary, 0.18));
+  }
+
+  if (item.id === "spear") {
+    drawRect(grid, 21, 7 + bob, 2, 14, OUTLINE);
+    drawRect(grid, 22, 7 + bob, 1, 14, item.style.accent);
+    drawPixelPattern(
+      grid,
+      [
+        [21, 3 + bob],
+        [20, 4 + bob],
+        [21, 4 + bob],
+        [22, 4 + bob],
+        [20, 5 + bob],
+        [21, 5 + bob],
+        [22, 5 + bob],
+        [21, 6 + bob]
+      ],
+      OUTLINE
+    );
+    drawPixelPattern(grid, [[21, 4 + bob], [20, 5 + bob], [21, 5 + bob], [22, 5 + bob], [21, 6 + bob]], item.style.primary);
+  }
+
+  if (item.id === "war_hammer") {
+    drawRect(grid, 20, 9 + bob, 2, 11, OUTLINE);
+    drawRect(grid, 21, 10 + bob, 1, 10, item.style.accent);
+    drawRect(grid, 17, 6 + bob, 6, 4, OUTLINE);
+    drawRect(grid, 18, 7 + bob, 4, 2, item.style.primary);
+    drawRect(grid, 18, 7 + bob, 1, 2, lighten(item.style.primary, 0.16));
+  }
+
+  if (item.id === "health_potion") {
+    drawRect(grid, 18, 14 + bob, 5, 6, OUTLINE);
+    drawRect(grid, 19, 15 + bob, 3, 4, item.style.primary);
+    drawRect(grid, 19, 13 + bob, 3, 2, OUTLINE);
+    drawRect(grid, 20, 13 + bob, 1, 2, item.style.accent);
+    setPixel(grid, 20, 15 + bob, lighten(item.style.primary, 0.28));
+    setPixel(grid, 21, 18 + bob, darken(item.style.primary, 0.18));
+  }
+
+  if (item.id === "torch") {
+    drawRect(grid, 3, 10 + bob, 2, 11, OUTLINE);
+    drawRect(grid, 4, 11 + bob, 1, 10, item.style.primary);
+    drawPixelPattern(
+      grid,
+      [
+        [3, 6 + bob],
+        [4, 5 + bob],
+        [5, 6 + bob],
+        [2, 7 + bob],
+        [3, 7 + bob],
+        [4, 7 + bob],
+        [5, 7 + bob],
+        [6, 7 + bob],
+        [3, 8 + bob],
+        [4, 8 + bob],
+        [5, 8 + bob]
+      ],
+      OUTLINE
+    );
+    drawPixelPattern(grid, [[4, 6 + bob], [3, 7 + bob], [4, 7 + bob], [5, 7 + bob], [4, 8 + bob]], item.style.accent);
+    setPixel(grid, 4, 7 + bob, "#F5D547");
   }
 }
 
