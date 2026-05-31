@@ -15,7 +15,7 @@ const {
 
 const { CpuMonitor } = require("./cpu");
 const { AppStore } = require("./store");
-const { renderCharacterDataUrl, renderCharacterBuffer } = require("./pixelRenderer");
+const { renderCharacterDataUrl, renderTrayCharacterBuffer } = require("./pixelRenderer");
 const { TrayAnimator } = require("./trayAnimator");
 const { UpdateManager } = require("./updater");
 const {
@@ -562,7 +562,7 @@ function refreshTrayMenu() {
 }
 
 function createTray() {
-  const initialImage = nativeImage.createFromBuffer(renderCharacterBuffer(character, 0, 2));
+  const initialImage = nativeImage.createFromBuffer(renderTrayCharacterBuffer(character, 0));
   initialImage.setTemplateImage(false);
   tray = new Tray(initialImage);
   tray.setToolTip(`${APP_NAME} - CPU ${Math.round(cpuMonitor.percent)}%`);

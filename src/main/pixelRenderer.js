@@ -7,6 +7,7 @@ const {
 } = require("../shared/catalog");
 
 const VIRTUAL_SIZE = 24;
+const TRAY_PADDING = 4;
 const OUTLINE = "#1F2328";
 const SHADOW = "#000000";
 
@@ -444,8 +445,24 @@ function drawToolLayer(grid, character, bob) {
   }
 }
 
-function gridToPngBuffer(grid, scale) {
-  const size = VIRTUAL_SIZE * scale;
+function drawCharacterGrid(characterInput, frameIndex = 0) {
+  const character = normalizeCharacter(characterInput, (characterInput && characterInput.version) || "0.1.12");
+  const grid = createGrid();
+  const bob = [0, 0, 1, 0][frameIndex % 4];
+
+  drawRect(grid, 7, 23, 10, 1, SHADOW, 90);
+  drawBodyLayer(grid, character, bob);
+  drawClothesLayer(grid, character, bob, frameIndex);
+  drawHeadLayer(grid, character, bob);
+  drawEyeLayer(grid, character, bob);
+  drawToolLayer(grid, character, bob);
+
+  return grid;
+}
+
+function gridToPngBuffer(grid, scale, padding = 0) {
+  const virtualSize = VIRTUAL_SIZE + padding * 2;
+  const size = virtualSize * scale;
   const png = new PNG({ width: size, height: size });
 
   for (let y = 0; y < VIRTUAL_SIZE; y += 1) {
@@ -454,7 +471,7 @@ function gridToPngBuffer(grid, scale) {
 
       for (let sy = 0; sy < scale; sy += 1) {
         for (let sx = 0; sx < scale; sx += 1) {
-          const pixelIndex = ((y * scale + sy) * size + (x * scale + sx)) * 4;
+          const pixelIndex = (((y + padding) * scale + sy) * size + ((x + padding) * scale + sx)) * 4;
           png.data[pixelIndex] = rgba[0];
           png.data[pixelIndex + 1] = rgba[1];
           png.data[pixelIndex + 2] = rgba[2];
@@ -468,18 +485,13 @@ function gridToPngBuffer(grid, scale) {
 }
 
 function renderCharacterBuffer(characterInput, frameIndex = 0, scale = 2) {
-  const character = normalizeCharacter(characterInput, (characterInput && characterInput.version) || "0.1.12");
-  const grid = createGrid();
-  const bob = [0, 0, 1, 0][frameIndex % 4];
-
-  drawRect(grid, 7, 23, 10, 1, SHADOW, 90);
-  drawBodyLayer(grid, character, bob);
-  drawClothesLayer(grid, character, bob, frameIndex);
-  drawHeadLayer(grid, character, bob);
-  drawEyeLayer(grid, character, bob);
-  drawToolLayer(grid, character, bob);
-
+  const grid = drawCharacterGrid(characterInput, frameIndex);
   return gridToPngBuffer(grid, Math.max(1, Math.round(scale)));
+}
+
+function renderTrayCharacterBuffer(characterInput, frameIndex = 0) {
+  const grid = drawCharacterGrid(characterInput, frameIndex);
+  return gridToPngBuffer(grid, 1, TRAY_PADDING);
 }
 
 function renderCharacterDataUrl(character, frameIndex = 0, scale = 8) {
@@ -487,7 +499,9 @@ function renderCharacterDataUrl(character, frameIndex = 0, scale = 8) {
 }
 
 module.exports = {
+  TRAY_PADDING,
   VIRTUAL_SIZE,
   renderCharacterBuffer,
+  renderTrayCharacterBuffer,
   renderCharacterDataUrl
 };
