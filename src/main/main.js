@@ -517,24 +517,8 @@ function setLanguage(language) {
   return settings;
 }
 
-function createContextMenu() {
+function createMoreMenu() {
   return Menu.buildFromTemplate([
-    {
-      label: t("tray.customize"),
-      click: () => openWindow("customization")
-    },
-    {
-      label: t("tray.inventory"),
-      click: () => openWindow("inventory")
-    },
-    {
-      label: t("tray.quests"),
-      click: () => openWindow("quests")
-    },
-    {
-      label: t("tray.settings"),
-      click: () => openWindow("settings")
-    },
     {
       label: t("tray.language"),
       submenu: LANGUAGE_OPTIONS.map((language) => ({
@@ -544,7 +528,6 @@ function createContextMenu() {
         click: () => setLanguage(language.id)
       }))
     },
-    { type: "separator" },
     {
       label: t("tray.about"),
       click: () => openWindow("about")
@@ -564,7 +547,7 @@ function refreshTrayMenu() {
     return;
   }
 
-  tray.setContextMenu(createContextMenu());
+  tray.setContextMenu(null);
 }
 
 function hideTrayPanel() {
@@ -661,8 +644,7 @@ function createTray() {
   });
 
   tray.on("right-click", () => {
-    hideTrayPanel();
-    tray.popUpContextMenu(createContextMenu());
+    toggleTrayPanel();
   });
 
   cpuMonitor.on("change", (percent) => {
@@ -924,7 +906,7 @@ function registerIpcHandlers() {
     hideTrayPanel();
     if (tray) {
       setTimeout(() => {
-        tray.popUpContextMenu(createContextMenu());
+        tray.popUpContextMenu(createMoreMenu());
       }, 0);
     }
     return getPublicState();
@@ -998,7 +980,7 @@ if (!gotSingleInstanceLock) {
 } else {
   app.on("second-instance", () => {
     if (tray) {
-      tray.popUpContextMenu(createContextMenu());
+      toggleTrayPanel();
     }
   });
 
