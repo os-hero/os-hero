@@ -11,10 +11,13 @@ const api = {
   deleteQuest: (id) => ipcRenderer.invoke("quest:delete", id),
   updateQuestStatus: (payload) => ipcRenderer.invoke("quest:update-status", payload),
   openQuestUrl: (id) => ipcRenderer.invoke("quest:open-url", id),
+  openQuestDetailWindow: (id) => ipcRenderer.invoke("quest:open-detail-window", id),
   setLaunchAtLogin: (enabled) => ipcRenderer.invoke("settings:set-launch-at-login", enabled),
   setLanguage: (language) => ipcRenderer.invoke("settings:set-language", language),
   checkForUpdates: () => ipcRenderer.invoke("update:check"),
   downloadAndInstallUpdate: () => ipcRenderer.invoke("update:download-and-install"),
+  openTrayView: (view) => ipcRenderer.invoke("tray:open-view", view),
+  showTrayMenu: () => ipcRenderer.invoke("tray:show-menu"),
   fitWindowToContent: (size) => ipcRenderer.invoke("window:fit-content", size),
   onAppState: (callback) => {
     const listener = (_event, nextState) => callback(nextState);

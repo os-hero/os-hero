@@ -1,6 +1,7 @@
 const appRoot = document.getElementById("app");
 const api = window.osHeroApi || window.osBoyApi;
 const view = new URLSearchParams(window.location.search).get("view") || "customization";
+document.body.classList.toggle("tray-window", view === "tray");
 
 let state = null;
 let previewTimer = null;
@@ -1138,7 +1139,138 @@ function renderAbout() {
   requestWindowFit();
 }
 
+function formatTrayDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleString(languageLocale(), {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function trayPanelQuests() {
+  return sortedQuests()
+    .filter((quest) => {
+      return questHasStatus(quest) ? quest.status !== "done" : true;
+    })
+    .slice(0, 6);
+}
+
+function renderTrayQuestRows(quests) {
+  if (quests.length === 0) {
+    return `
+      <tr>
+        <td colspan="4">
+          <div class="tray-empty">${textHtml("quest.empty")}</div>
+        </td>
+      </tr>
+    `;
+  }
+
+  return quests
+    .map(
+      (quest) => `
+        <tr class="tray-quest-row" data-tray-quest="${escapeHtml(quest.id)}">
+          <td>${escapeHtml(questTypeName(quest.type))}</td>
+          <td class="quest-title-cell">${escapeHtml(quest.title)}</td>
+          <td>
+            <span class="tray-status-pill">${escapeHtml(questHasStatus(quest) ? questStatusName(quest.status) : text("quest.noStatus"))}</span>
+          </td>
+          <td>${escapeHtml(formatTrayDateTime(quest.createdAt))}</td>
+        </tr>
+      `
+    )
+    .join("");
+}
+
+function renderTrayPanel() {
+  const quests = trayPanelQuests();
+
+  appRoot.innerHTML = `
+    <div class="tray-panel-shell">
+      <section class="tray-content-pane">
+        <div class="tray-title-row">
+          <h1>${textHtml("tray.panelTitle")}</h1>
+          <button class="primary-button tray-header-button" data-tray-view="quests">${textHtml("quest.new")}</button>
+        </div>
+        <div class="tray-table-frame">
+          <table class="quest-table tray-quest-table">
+            <thead>
+              <tr>
+                <th>${textHtml("quest.type")}</th>
+                <th>${textHtml("quest.title")}</th>
+                <th>${textHtml("quest.status")}</th>
+                <th>${textHtml("quest.createdAt")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderTrayQuestRows(quests)}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <nav class="tray-nav-pane" aria-label="${textHtml("tray.panelNav")}">
+        <button class="tray-nav-button" data-tray-view="customization">
+          <span class="tray-nav-icon hero-icon"><img id="tray-hero-preview" alt="${textHtml("custom.previewAlt")}" /></span>
+          <strong>${textHtml("tray.customize")}</strong>
+        </button>
+        <button class="tray-nav-button" data-tray-view="inventory">
+          <span class="tray-nav-icon bag-icon" aria-hidden="true"></span>
+          <strong>${textHtml("tray.inventory")}</strong>
+        </button>
+        <button class="tray-nav-button" data-tray-view="quests">
+          <span class="tray-nav-icon quest-icon" aria-hidden="true"></span>
+          <strong>${textHtml("tray.quests")}</strong>
+        </button>
+        <button class="tray-nav-button" data-tray-view="settings">
+          <span class="tray-nav-icon settings-icon" aria-hidden="true"></span>
+          <strong>${textHtml("tray.settings")}</strong>
+        </button>
+        <button class="tray-nav-button" id="tray-more-button">
+          <span class="tray-nav-icon more-icon" aria-hidden="true"></span>
+          <strong>${textHtml("tray.more")}</strong>
+        </button>
+      </nav>
+    </div>
+  `;
+
+  const heroPreview = document.getElementById("tray-hero-preview");
+  api.renderCharacter(state.character, 0, 4).then((src) => {
+    heroPreview.src = src;
+  });
+
+  appRoot.querySelectorAll("[data-tray-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      api.openTrayView(button.dataset.trayView);
+    });
+  });
+
+  appRoot.querySelectorAll("[data-tray-quest]").forEach((row) => {
+    row.addEventListener("click", () => {
+      api.openQuestDetailWindow(row.dataset.trayQuest);
+    });
+  });
+
+  document.getElementById("tray-more-button").addEventListener("click", () => {
+    api.showTrayMenu();
+  });
+}
+
 function renderCurrentView() {
+  if (view === "tray") {
+    renderTrayPanel();
+    return;
+  }
+
   if (view === "inventory") {
     renderInventory();
     return;

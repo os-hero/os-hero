@@ -66,6 +66,7 @@ if (process.env.OS_HERO_USER_DATA_DIR || process.env.OS_BOY_USER_DATA_DIR) {
 
 let tray = null;
 let trayAnimator = null;
+let trayPanelWindow = null;
 let cpuMonitor = null;
 let store = null;
 let character = null;
@@ -77,6 +78,11 @@ let isQuitting = false;
 const reminderTimers = new Map();
 
 const windows = new Map();
+
+const TRAY_PANEL_SIZE = {
+  width: 720,
+  height: 560
+};
 
 const WINDOW_CONFIG = {
   customization: {
@@ -561,6 +567,88 @@ function refreshTrayMenu() {
   tray.setContextMenu(createContextMenu());
 }
 
+function hideTrayPanel() {
+  if (trayPanelWindow && !trayPanelWindow.isDestroyed()) {
+    trayPanelWindow.hide();
+  }
+}
+
+function positionTrayPanel() {
+  if (!tray || !trayPanelWindow || trayPanelWindow.isDestroyed()) {
+    return;
+  }
+
+  const trayBounds = tray.getBounds();
+  const display = screen.getDisplayMatching(trayBounds);
+  const workArea = display.workArea;
+  const width = Math.min(TRAY_PANEL_SIZE.width, Math.max(360, workArea.width - 24));
+  const height = Math.min(TRAY_PANEL_SIZE.height, Math.max(360, workArea.height - 24));
+  const gap = 8;
+  const trayCenterX = trayBounds.x + trayBounds.width / 2;
+  const openBelow = trayBounds.y < workArea.y + workArea.height / 2;
+  const x = clamp(Math.round(trayCenterX - width + 52), workArea.x + 8, workArea.x + workArea.width - width - 8);
+  const y = openBelow
+    ? clamp(trayBounds.y + trayBounds.height + gap, workArea.y + 8, workArea.y + workArea.height - height - 8)
+    : clamp(trayBounds.y - height - gap, workArea.y + 8, workArea.y + workArea.height - height - 8);
+
+  trayPanelWindow.setBounds({ x, y, width, height });
+}
+
+function createTrayPanelWindow() {
+  if (trayPanelWindow && !trayPanelWindow.isDestroyed()) {
+    return trayPanelWindow;
+  }
+
+  trayPanelWindow = new BrowserWindow({
+    width: TRAY_PANEL_SIZE.width,
+    height: TRAY_PANEL_SIZE.height,
+    minWidth: 360,
+    minHeight: 360,
+    frame: false,
+    resizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    show: false,
+    transparent: true,
+    alwaysOnTop: true,
+    backgroundColor: "#00000000",
+    hasShadow: true,
+    icon: getAppIcon(),
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  trayPanelWindow.on("blur", () => {
+    hideTrayPanel();
+  });
+
+  trayPanelWindow.on("closed", () => {
+    trayPanelWindow = null;
+  });
+
+  trayPanelWindow.loadFile(path.join(__dirname, "../renderer/index.html"), {
+    query: { view: "tray" }
+  });
+
+  return trayPanelWindow;
+}
+
+function toggleTrayPanel() {
+  const panelWindow = createTrayPanelWindow();
+
+  if (panelWindow.isVisible()) {
+    panelWindow.hide();
+    return;
+  }
+
+  positionTrayPanel();
+  panelWindow.show();
+  panelWindow.focus();
+}
+
 function createTray() {
   const initialImage = nativeImage.createFromBuffer(renderTrayCharacterBuffer(character, 0));
   initialImage.setTemplateImage(false);
@@ -569,10 +657,11 @@ function createTray() {
   refreshTrayMenu();
 
   tray.on("click", () => {
-    tray.popUpContextMenu(createContextMenu());
+    toggleTrayPanel();
   });
 
   tray.on("right-click", () => {
+    hideTrayPanel();
     tray.popUpContextMenu(createContextMenu());
   });
 
@@ -588,6 +677,8 @@ function createTray() {
 }
 
 function openWindow(view) {
+  hideTrayPanel();
+
   if (windows.has(view)) {
     const existingWindow = windows.get(view);
     if (existingWindow && !existingWindow.isDestroyed()) {
@@ -785,6 +876,13 @@ function registerIpcHandlers() {
     return getPublicState();
   });
 
+  ipcMain.handle("quest:open-detail-window", (_event, questId) => {
+    if (findQuest(questId)) {
+      openQuestDetailWindow(questId);
+    }
+    return getPublicState();
+  });
+
   ipcMain.handle("settings:set-launch-at-login", (_event, enabled) => {
     saveSettings({
       ...settings,
@@ -812,6 +910,24 @@ function registerIpcHandlers() {
     }
 
     return localizeUpdateState(await updateManager.downloadUpdate(true));
+  });
+
+  ipcMain.handle("tray:open-view", (_event, view) => {
+    const allowedViews = new Set(["customization", "inventory", "quests", "settings", "about"]);
+    if (allowedViews.has(view)) {
+      openWindow(view);
+    }
+    return getPublicState();
+  });
+
+  ipcMain.handle("tray:show-menu", () => {
+    hideTrayPanel();
+    if (tray) {
+      setTimeout(() => {
+        tray.popUpContextMenu(createContextMenu());
+      }, 0);
+    }
+    return getPublicState();
   });
 
   ipcMain.handle("window:close", (event) => {
