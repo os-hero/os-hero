@@ -8,6 +8,7 @@ let previewFrame = 0;
 let updateUnsubscribe = null;
 let stateUnsubscribe = null;
 let questDetailUnsubscribe = null;
+const CHARACTER_PREVIEW_SCALE = 8;
 let questRoute = {
   mode: "list",
   type: null,
@@ -88,11 +89,11 @@ function genderDescription(gender) {
   return text(`gender.${gender.id}.description`);
 }
 
-async function updatePreview(imgElement, character, scale = 10) {
+async function updatePreview(imgElement, character, scale = CHARACTER_PREVIEW_SCALE) {
   imgElement.src = await api.renderCharacter(character, previewFrame, scale);
 }
 
-function startPreviewAnimation(imgElement, getCharacter, scale = 10) {
+function startPreviewAnimation(imgElement, getCharacter, scale = CHARACTER_PREVIEW_SCALE) {
   if (previewTimer) {
     clearInterval(previewTimer);
   }
@@ -215,7 +216,7 @@ function renderCustomization() {
     };
     colorInput.value = draft.bodyColor;
     colorPicker.value = draft.bodyColor;
-    updatePreview(preview, draft, 10);
+    updatePreview(preview, draft);
   };
 
   genderOptions.addEventListener("click", (event) => {
@@ -228,7 +229,7 @@ function renderCustomization() {
     genderOptions.querySelectorAll("button").forEach((option) => {
       option.classList.toggle("active", option.dataset.gender === draft.gender);
     });
-    updatePreview(preview, draft, 10);
+    updatePreview(preview, draft);
   });
 
   eyeOptions.addEventListener("click", (event) => {
@@ -241,7 +242,7 @@ function renderCustomization() {
     eyeOptions.querySelectorAll("button").forEach((option) => {
       option.classList.toggle("active", option.dataset.eye === draft.eyeType);
     });
-    updatePreview(preview, draft, 10);
+    updatePreview(preview, draft);
   });
 
   colorInput.addEventListener("input", () => {
@@ -275,7 +276,7 @@ function renderCustomization() {
     await api.closeWindow();
   });
 
-  startPreviewAnimation(preview, () => draft, 10);
+  startPreviewAnimation(preview, () => draft);
   requestWindowFit();
 }
 
@@ -359,7 +360,7 @@ function renderInventory() {
     `;
 
     const preview = document.getElementById("character-preview");
-    startPreviewAnimation(preview, () => previewCharacter, 9);
+    startPreviewAnimation(preview, () => previewCharacter);
 
     appRoot.querySelectorAll("[data-tab]").forEach((button) => {
       button.addEventListener("click", () => {

@@ -108,7 +108,7 @@ button:disabled {
 .preview-frame {
   display: grid;
   place-items: center;
-  width: min(240px, 100%);
+  width: min(256px, 100%);
   aspect-ratio: 1;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -127,9 +127,10 @@ button:disabled {
 }
 
 .preview-frame img {
-  width: 176px;
-  height: 176px;
+  width: 192px;
+  height: 192px;
   image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .preview-note {
