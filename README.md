@@ -4,6 +4,15 @@ OS Hero is a macOS Menu Bar and Windows System Tray pixel character app inspired
 by RunCat. The tray icon is a small 2D pixel human character whose idle animation
 gets faster as CPU usage rises.
 
+## Repositories
+
+- App source: https://github.com/os-hero/os-hero
+- Public website and update feed: https://github.com/os-hero/os-hero.github.io
+
+Build and release commands are run from this app source repository. The deploy
+script copies generated release artifacts into the website/update-feed
+repository.
+
 ## Tech Stack Decision
 
 The MVP uses Electron.
