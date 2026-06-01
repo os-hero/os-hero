@@ -284,6 +284,21 @@ function renderCustomization() {
 function renderInventory() {
   let currentTab = state.itemCategories[0] ? state.itemCategories[0].id : "head";
   let selectedItemId = (state.items.find((item) => item.category === currentTab) || state.items[0] || {}).id || null;
+  const scrollTopByTab = new Map();
+
+  const rememberScroll = () => {
+    const itemList = appRoot.querySelector(".item-list");
+    if (itemList) {
+      scrollTopByTab.set(currentTab, itemList.scrollTop);
+    }
+  };
+
+  const restoreScroll = () => {
+    const itemList = appRoot.querySelector(".item-list");
+    if (itemList) {
+      itemList.scrollTop = scrollTopByTab.get(currentTab) || 0;
+    }
+  };
 
   const buttonLabel = (item) => {
     if (!item) {
@@ -362,9 +377,12 @@ function renderInventory() {
 
     const preview = document.getElementById("character-preview");
     startPreviewAnimation(preview, () => previewCharacter);
+    restoreScroll();
+    requestAnimationFrame(restoreScroll);
 
     appRoot.querySelectorAll("[data-tab]").forEach((button) => {
       button.addEventListener("click", () => {
+        rememberScroll();
         currentTab = button.dataset.tab;
         const nextFiltered = state.items.filter((item) => item.category === currentTab);
         selectedItemId = nextFiltered[0] ? nextFiltered[0].id : null;
@@ -374,6 +392,7 @@ function renderInventory() {
 
     appRoot.querySelectorAll("[data-item]").forEach((button) => {
       button.addEventListener("click", () => {
+        rememberScroll();
         selectedItemId = button.dataset.item;
         render();
       });
@@ -385,6 +404,7 @@ function renderInventory() {
         return;
       }
 
+      rememberScroll();
       const isEquipped = state.character.equipped[selectedItem.slot] === selectedItem.id;
       const action = isEquipped && selectedItem.slot !== "clothes" ? "unequip" : "equip";
       state = await api.updateEquipment({
