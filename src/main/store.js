@@ -27,6 +27,7 @@ class AppStore {
     this.characterPath = path.join(userDataPath, "character.json");
     this.settingsPath = path.join(userDataPath, "settings.json");
     this.questsPath = path.join(userDataPath, "quests.json");
+    this.walletPath = path.join(userDataPath, "wallet.json");
   }
 
   loadCharacter() {
@@ -53,12 +54,21 @@ class AppStore {
     writeJson(this.questsPath, { quests });
   }
 
+  loadWallet() {
+    return readJson(this.walletPath);
+  }
+
+  saveWallet(wallet) {
+    writeJson(this.walletPath, wallet);
+  }
+
   paths() {
     return {
       userData: this.userDataPath,
       character: this.characterPath,
       settings: this.settingsPath,
-      quests: this.questsPath
+      quests: this.questsPath,
+      wallet: this.walletPath
     };
   }
 }

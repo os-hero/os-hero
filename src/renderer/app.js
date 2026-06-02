@@ -8,6 +8,7 @@ let previewTimer = null;
 let previewFrame = 0;
 let updateUnsubscribe = null;
 let stateUnsubscribe = null;
+let walletUnsubscribe = null;
 let questDetailUnsubscribe = null;
 const CHARACTER_PREVIEW_SCALE = 8;
 let questRoute = {
@@ -64,6 +65,22 @@ function languageLocale() {
   }
 
   return "en-US";
+}
+
+function formatNumber(value) {
+  const number = Number(value);
+  return new Intl.NumberFormat(languageLocale()).format(Number.isFinite(number) ? Math.floor(number) : 0);
+}
+
+function currentGold() {
+  return state && state.wallet ? state.wallet.gold : 0;
+}
+
+function updateInventoryGoldDisplay() {
+  const goldValue = document.getElementById("inventory-gold-value");
+  if (goldValue) {
+    goldValue.textContent = formatNumber(currentGold());
+  }
 }
 
 function categoryName(category) {
@@ -328,7 +345,13 @@ function renderInventory() {
       : state.character;
     appRoot.innerHTML = `
       <div>
-        <h1 class="window-title">${textHtml("window.inventory")}</h1>
+        <div class="inventory-header">
+          <h1 class="window-title">${textHtml("window.inventory")}</h1>
+          <div class="gold-balance" aria-label="${textHtml("inventory.goldAria")}">
+            <span>${textHtml("inventory.gold")}</span>
+            <strong id="inventory-gold-value">${escapeHtml(formatNumber(currentGold()))}</strong>
+          </div>
+        </div>
         <div class="inventory-layout">
           <section class="inventory-list">
             <nav class="tabs" aria-label="${textHtml("inventory.tabs")}">
@@ -1097,6 +1120,7 @@ function renderSettings() {
           <span>${escapeHtml(state.storage.character)}</span>
           <span>${escapeHtml(state.storage.settings)}</span>
           <span>${escapeHtml(state.storage.quests)}</span>
+          <span>${escapeHtml(state.storage.wallet)}</span>
         </div>
       </section>
     </div>
@@ -1322,6 +1346,16 @@ async function main() {
     renderCurrentView();
   });
 
+  if (api.onWalletState) {
+    walletUnsubscribe = api.onWalletState((nextWallet) => {
+      state = {
+        ...state,
+        wallet: nextWallet
+      };
+      updateInventoryGoldDisplay();
+    });
+  }
+
   if (view === "quests" && api.onShowQuestDetail) {
     questDetailUnsubscribe = api.onShowQuestDetail((questId) => {
       questRoute = {
@@ -1347,6 +1381,10 @@ window.addEventListener("beforeunload", () => {
 
   if (stateUnsubscribe) {
     stateUnsubscribe();
+  }
+
+  if (walletUnsubscribe) {
+    walletUnsubscribe();
   }
 
   if (questDetailUnsubscribe) {

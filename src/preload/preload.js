@@ -24,6 +24,11 @@ const api = {
     ipcRenderer.on("state:changed", listener);
     return () => ipcRenderer.removeListener("state:changed", listener);
   },
+  onWalletState: (callback) => {
+    const listener = (_event, nextWallet) => callback(nextWallet);
+    ipcRenderer.on("wallet:changed", listener);
+    return () => ipcRenderer.removeListener("wallet:changed", listener);
+  },
   onUpdateState: (callback) => {
     const listener = (_event, updateState) => callback(updateState);
     ipcRenderer.on("update:state", listener);

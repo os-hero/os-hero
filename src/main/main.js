@@ -53,6 +53,10 @@ const APP_NAME = "OS Hero";
 const LEGACY_APP_NAME = "OS Boy";
 const DEVELOPER = "이충복";
 const CONTACT = "themercenary@duck.com";
+const OS_GOLD_MAX = 999_999_999;
+const OS_GOLD_SECONDS_PER_GOLD = 5 * 60;
+const OS_GOLD_TICK_MS = 30 * 1000;
+const OS_GOLD_MAX_TICK_SECONDS = 60;
 
 app.setName(APP_NAME);
 
@@ -72,9 +76,12 @@ let store = null;
 let character = null;
 let settings = null;
 let quests = [];
+let wallet = null;
 let updateManager = null;
 let firstRunPending = false;
 let isQuitting = false;
+let runtimeGoldTimer = null;
+let lastRuntimeGoldTickAt = 0;
 const reminderTimers = new Map();
 
 const windows = new Map();
@@ -186,6 +193,7 @@ function getPublicState() {
     questStatuses: QUEST_STATUSES,
     questPageSize: QUEST_PAGE_SIZE,
     quests: sortQuestsNewestFirst(quests),
+    wallet,
     cpuPercent: cpuMonitor ? cpuMonitor.percent : 0,
     update: updateManager ? localizeUpdateState(updateManager.getState()) : null,
     storage: store ? store.paths() : null,
@@ -203,7 +211,7 @@ function migrateLegacyUserDataIfNeeded() {
 
   fs.mkdirSync(nextPath, { recursive: true });
 
-  for (const fileName of ["character.json", "settings.json", "quests.json"]) {
+  for (const fileName of ["character.json", "settings.json", "quests.json", "wallet.json"]) {
     const legacyFile = path.join(legacyPath, fileName);
     const nextFile = path.join(nextPath, fileName);
 
@@ -229,6 +237,115 @@ function notifyAppState() {
       browserWindow.webContents.send("state:changed", publicState);
     }
   }
+}
+
+function notifyWalletState() {
+  for (const browserWindow of BrowserWindow.getAllWindows()) {
+    if (!browserWindow.isDestroyed()) {
+      browserWindow.webContents.send("wallet:changed", wallet);
+    }
+  }
+}
+
+function clampGold(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return 0;
+  }
+
+  return Math.min(OS_GOLD_MAX, Math.max(0, Math.floor(number)));
+}
+
+function normalizeWallet(input) {
+  const source = input && typeof input === "object" ? input : {};
+  const remainder = Number(source.runtimeSecondsRemainder);
+
+  return {
+    version: currentVersion(),
+    gold: clampGold(source.gold),
+    runtimeSecondsRemainder: Number.isFinite(remainder)
+      ? Math.min(OS_GOLD_SECONDS_PER_GOLD - 1, Math.max(0, Math.floor(remainder)))
+      : 0,
+    updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : new Date().toISOString()
+  };
+}
+
+function saveWallet(nextWallet, options = {}) {
+  wallet = normalizeWallet({
+    ...nextWallet,
+    updatedAt: new Date().toISOString()
+  });
+  store.saveWallet(wallet);
+
+  if (options.notify !== false) {
+    notifyWalletState();
+  }
+
+  return wallet;
+}
+
+function creditRuntimeGoldSeconds(seconds) {
+  if (!wallet || wallet.gold >= OS_GOLD_MAX) {
+    return wallet;
+  }
+
+  const elapsedSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+  if (elapsedSeconds <= 0) {
+    return wallet;
+  }
+
+  const previousGold = wallet.gold;
+  const totalRuntimeSeconds = wallet.runtimeSecondsRemainder + elapsedSeconds;
+  const earnedGold = Math.floor(totalRuntimeSeconds / OS_GOLD_SECONDS_PER_GOLD);
+  const nextGold = clampGold(previousGold + earnedGold);
+  const capped = nextGold >= OS_GOLD_MAX;
+
+  saveWallet(
+    {
+      ...wallet,
+      gold: nextGold,
+      runtimeSecondsRemainder: capped ? 0 : totalRuntimeSeconds % OS_GOLD_SECONDS_PER_GOLD
+    },
+    { notify: false }
+  );
+
+  if (nextGold !== previousGold) {
+    notifyWalletState();
+  }
+
+  return wallet;
+}
+
+function settleRuntimeGold() {
+  const now = Date.now();
+  if (!lastRuntimeGoldTickAt) {
+    lastRuntimeGoldTickAt = now;
+    return wallet;
+  }
+
+  const elapsedSeconds = Math.floor((now - lastRuntimeGoldTickAt) / 1000);
+  if (elapsedSeconds <= 0) {
+    return wallet;
+  }
+
+  const creditedSeconds = Math.min(elapsedSeconds, OS_GOLD_MAX_TICK_SECONDS);
+  lastRuntimeGoldTickAt =
+    elapsedSeconds > OS_GOLD_MAX_TICK_SECONDS ? now : lastRuntimeGoldTickAt + elapsedSeconds * 1000;
+
+  return creditRuntimeGoldSeconds(creditedSeconds);
+}
+
+function startRuntimeGoldTimer() {
+  lastRuntimeGoldTickAt = Date.now();
+  runtimeGoldTimer = setInterval(settleRuntimeGold, OS_GOLD_TICK_MS);
+}
+
+function stopRuntimeGoldTimer() {
+  if (runtimeGoldTimer) {
+    clearInterval(runtimeGoldTimer);
+    runtimeGoldTimer = null;
+  }
+  settleRuntimeGold();
 }
 
 function persistCharacter(nextCharacter) {
@@ -945,6 +1062,9 @@ function bootstrap() {
   quests = normalizeQuests(store.loadQuests(), currentVersion());
   store.saveQuests(quests);
 
+  wallet = normalizeWallet(store.loadWallet());
+  store.saveWallet(wallet);
+
   cpuMonitor = new CpuMonitor(1000);
   cpuMonitor.start();
 
@@ -959,6 +1079,7 @@ function bootstrap() {
   registerIpcHandlers();
   scheduleAllReminders();
   createTray();
+  startRuntimeGoldTimer();
 
   if (process.platform === "darwin" && app.dock) {
     app.dock.hide();
@@ -994,6 +1115,7 @@ if (!gotSingleInstanceLock) {
     if (cpuMonitor) {
       cpuMonitor.stop();
     }
+    stopRuntimeGoldTimer();
     for (const questId of Array.from(reminderTimers.keys())) {
       cancelReminder(questId);
     }

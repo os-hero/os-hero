@@ -157,6 +157,41 @@ button:disabled {
   padding: 22px;
 }
 
+.inventory-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.inventory-header .window-title {
+  margin: 0;
+}
+
+.gold-balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  border: 1px solid #d9b44a;
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: #fff8df;
+  color: #654400;
+  white-space: nowrap;
+}
+
+.gold-balance span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.gold-balance strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
 .field-group {
   margin-bottom: 22px;
 }
@@ -753,6 +788,11 @@ button:disabled {
   .split,
   .inventory-layout {
     grid-template-columns: 1fr;
+  }
+
+  .inventory-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .quest-type-grid {
