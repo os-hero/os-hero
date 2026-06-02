@@ -9,6 +9,7 @@ const packageJson = require(path.join(rootDir, "package.json"));
 const remoteRepo = process.env.OS_HERO_PAGES_REPO || "https://github.com/os-hero/os-hero.github.io.git";
 const pagesDir = path.resolve(process.env.OS_HERO_PAGES_DIR || path.join(rootDir, "..", "os-hero.github.io"));
 const updatesDir = path.join(pagesDir, "updates");
+const retainedUpdateVersions = Math.max(1, Number(process.env.OS_HERO_RETAINED_UPDATE_VERSIONS || 3));
 
 function run(command, args, options = {}) {
   execFileSync(command, args, {
@@ -75,6 +76,50 @@ function cleanLatestMetadata() {
   }
 }
 
+function compareVersionsDesc(a, b) {
+  const aParts = a.split(".").map((part) => Number(part) || 0);
+  const bParts = b.split(".").map((part) => Number(part) || 0);
+  const maxLength = Math.max(aParts.length, bParts.length);
+
+  for (let index = 0; index < maxLength; index += 1) {
+    const diff = (bParts[index] || 0) - (aParts[index] || 0);
+    if (diff !== 0) {
+      return diff;
+    }
+  }
+
+  return 0;
+}
+
+function artifactVersion(fileName) {
+  const match = fileName.match(/^OS Hero(?: Setup)?[ -](\d+\.\d+\.\d+).*?(?:\.(?:zip|dmg|exe|blockmap))$/);
+  return match ? match[1] : null;
+}
+
+function pruneOldUpdateArtifacts() {
+  const versions = new Set([packageJson.version]);
+
+  for (const fileName of fs.readdirSync(updatesDir)) {
+    const version = artifactVersion(fileName);
+    if (version) {
+      versions.add(version);
+    }
+  }
+
+  const retainedVersions = new Set(
+    Array.from(versions)
+      .sort(compareVersionsDesc)
+      .slice(0, retainedUpdateVersions)
+  );
+
+  for (const fileName of fs.readdirSync(updatesDir)) {
+    const version = artifactVersion(fileName);
+    if (version && !retainedVersions.has(version)) {
+      fs.rmSync(path.join(updatesDir, fileName), { force: true });
+    }
+  }
+}
+
 function copyUpdateArtifacts(artifactNames) {
   for (const fileName of artifactNames) {
     fs.copyFileSync(path.join(releaseDir, fileName), path.join(updatesDir, fileName));
@@ -114,6 +159,7 @@ function main() {
   ensurePagesRepo();
   cleanLatestMetadata();
   copyUpdateArtifacts(artifactNames);
+  pruneOldUpdateArtifacts();
   commitAndPush();
 
   console.log(`Deployed OS Hero ${packageJson.version} update feed to https://os-hero.github.io/updates/`);
