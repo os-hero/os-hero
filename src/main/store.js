@@ -28,6 +28,7 @@ class AppStore {
     this.settingsPath = path.join(userDataPath, "settings.json");
     this.questsPath = path.join(userDataPath, "quests.json");
     this.walletPath = path.join(userDataPath, "wallet.json");
+    this.expeditionPath = path.join(userDataPath, "expedition.json");
   }
 
   loadCharacter() {
@@ -35,6 +36,17 @@ class AppStore {
   }
 
   saveCharacter(character) {
+    const previous = this.loadCharacter();
+    if (character.schemaVersion === 2 && previous && previous.schemaVersion !== 2) {
+      const backup = path.join(this.userDataPath, "backups", "wardrobe-v2", "character.json");
+      fs.mkdirSync(path.dirname(backup), { recursive: true, mode: 0o700 });
+      try {
+        fs.copyFileSync(this.characterPath, backup, fs.constants.COPYFILE_EXCL);
+        fs.chmodSync(backup, 0o600);
+      } catch (error) {
+        if (error.code !== "EEXIST") throw error;
+      }
+    }
     writeJson(this.characterPath, character);
   }
 
@@ -58,6 +70,14 @@ class AppStore {
     return readJson(this.walletPath);
   }
 
+  loadExpedition() {
+    return readJson(this.expeditionPath);
+  }
+
+  saveExpedition(expedition) {
+    writeJson(this.expeditionPath, expedition);
+  }
+
   saveWallet(wallet) {
     writeJson(this.walletPath, wallet);
   }
@@ -68,7 +88,8 @@ class AppStore {
       character: this.characterPath,
       settings: this.settingsPath,
       quests: this.questsPath,
-      wallet: this.walletPath
+      wallet: this.walletPath,
+      expedition: this.expeditionPath
     };
   }
 }

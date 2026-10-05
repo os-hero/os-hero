@@ -10,12 +10,18 @@ const {
   screen,
   shell,
   Tray,
-  ipcMain
+  ipcMain,
+  powerMonitor
 } = require("electron");
 
 const { CpuMonitor } = require("./cpu");
 const { AppStore } = require("./store");
-const { renderCharacterDataUrl, renderTrayCharacterBuffer } = require("./pixelRenderer");
+const { renderCharacterDataUrl, renderTrayCharacterBuffer, renderItemDataUrl } = require("./pixelRenderer");
+const { REWARDS, dayKey, normalizeExpedition, changeExpedition, advanceExpedition, publicExpedition } = require("../shared/expedition");
+const { companionMessages } = require("../shared/companionMessages");
+const { HAIR_COLORS, wardrobeMessages } = require("../shared/wardrobe");
+const { TRAY_ROUTES, TRAY_PANEL_SIZE, trayPanelBounds, normalizeTraySession, isOutsideClick } = require("../shared/trayPanel");
+const { createOutsideClickMonitor } = require("./outsideClick");
 const { TrayAnimator } = require("./trayAnimator");
 const { UpdateManager } = require("./updater");
 const {
@@ -27,6 +33,7 @@ const {
   normalizeCharacter,
   normalizeSettings,
   equipItem,
+  getItemById,
   isValidHexColor,
   unequipSlot
 } = require("../shared/catalog");
@@ -57,7 +64,9 @@ const OS_GOLD_MAX = 999_999_999;
 const OS_GOLD_SECONDS_PER_GOLD = 5 * 60;
 const OS_GOLD_TICK_MS = 30 * 1000;
 const OS_GOLD_MAX_TICK_SECONDS = 60;
+const TRAY_PANEL_IDLE_DESTROY_MS = 10 * 1000;
 
+app.disableHardwareAcceleration();
 app.setName(APP_NAME);
 
 if (process.platform === "win32") {
@@ -71,12 +80,20 @@ if (process.env.OS_HERO_USER_DATA_DIR || process.env.OS_BOY_USER_DATA_DIR) {
 let tray = null;
 let trayAnimator = null;
 let trayPanelWindow = null;
+let trayPanelDestroyTimer = null;
+let traySession = { route: "companion" };
+let outsideClickMonitor = null;
 let cpuMonitor = null;
 let store = null;
 let character = null;
 let settings = null;
 let quests = [];
 let wallet = null;
+let expedition = null;
+let expeditionTimer = null;
+let expeditionTickAt = 0;
+let expeditionSavedAt = 0;
+let heroPresentation = null;
 let updateManager = null;
 let firstRunPending = false;
 let isQuitting = false;
@@ -85,11 +102,6 @@ let lastRuntimeGoldTickAt = 0;
 const reminderTimers = new Map();
 
 const windows = new Map();
-
-const TRAY_PANEL_SIZE = {
-  width: 720,
-  height: 560
-};
 
 const WINDOW_CONFIG = {
   customization: {
@@ -178,17 +190,21 @@ function getPublicState() {
   return {
     app: appInfo(),
     character,
+    hero: getHeroPresentation(),
+    expedition: getExpeditionState(),
     settings: {
       ...settings,
       language,
       version: currentVersion()
     },
     languageOptions: LANGUAGE_OPTIONS,
-    messages: getMessages(language),
+    messages: { ...getMessages(language), ...companionMessages(language), ...wardrobeMessages(language) },
+    hairColors: HAIR_COLORS,
+    itemThumbnails,
     eyeTypes: EYE_TYPES,
     genderOptions: GENDER_OPTIONS,
     itemCategories: ITEM_CATEGORIES,
-    items: ITEMS.filter((item) => item.owned),
+    items: ITEMS.filter((item) => ownsItem(item.id)),
     questTypes: QUEST_TYPES,
     questStatuses: QUEST_STATUSES,
     questPageSize: QUEST_PAGE_SIZE,
@@ -201,7 +217,79 @@ function getPublicState() {
   };
 }
 
+function ownsItem(id) {
+  return Boolean(getItemById(id)?.owned || expedition?.unlocked.includes(id));
+}
+
+function getHeroPresentation() {
+  const key = JSON.stringify(character);
+  if (!heroPresentation || heroPresentation.key !== key) {
+    heroPresentation = { key, frames: [0, 1, 2, 3].map((frame) => renderCharacterDataUrl(character, frame, 1)) };
+  }
+  return heroPresentation;
+}
+
+const rewardThumbnails = Object.fromEntries(REWARDS.map(({ id }) => [id, renderItemDataUrl(id)]));
+const itemThumbnails = Object.fromEntries(ITEMS.map(({ id }) => [id, renderItemDataUrl(id)]));
+function getExpeditionState() {
+  return expedition ? { ...publicExpedition(expedition), thumbnails: rewardThumbnails, clockBlocked: dayKey() < expedition.day } : null;
+}
+
+function notifyExpedition() {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) window.webContents.send("expedition:changed", getExpeditionState());
+  }
+}
+
+function persistExpedition(next) {
+  store.saveExpedition(next);
+  expedition = next;
+  expeditionSavedAt = performance.now();
+}
+
+function settleExpedition(forceSave = false) {
+  const now = performance.now();
+  const next = advanceExpedition(expedition, now - expeditionTickAt);
+  expeditionTickAt = now;
+  const unlocked = next.unlocked.length !== expedition.unlocked.length;
+  const stopped = expedition.running && !next.running;
+  try {
+    if (forceSave || unlocked || stopped || now - expeditionSavedAt >= 15000) persistExpedition(next);
+    else expedition = next;
+  } catch (error) {
+    // Never publish an unlock unless its progress and entitlement were saved together.
+    expedition = { ...expedition, running: false };
+    stopExpeditionTimer();
+    notifyExpedition();
+    throw error;
+  }
+  if (!expedition.running) stopExpeditionTimer();
+  if (unlocked) notifyAppState();
+  else notifyExpedition();
+}
+
+function stopExpeditionTimer() {
+  if (expeditionTimer) clearInterval(expeditionTimer);
+  expeditionTimer = null;
+}
+
+function runExpeditionAction(action, targetId) {
+  if (expedition.running) settleExpedition(true);
+  persistExpedition(changeExpedition(expedition, action, targetId));
+  stopExpeditionTimer();
+  if (expedition.running) {
+    expeditionTickAt = performance.now();
+    expeditionTimer = setInterval(() => {
+      try { settleExpedition(); } catch { console.error("Expedition checkpoint failed; paused."); }
+    }, 1000);
+    expeditionTimer.unref();
+  }
+  notifyExpedition();
+  return getExpeditionState();
+}
+
 function migrateLegacyUserDataIfNeeded() {
+  if (process.env.OS_HERO_USER_DATA_DIR || process.env.OS_BOY_USER_DATA_DIR) return;
   const nextPath = app.getPath("userData");
   const legacyPath = path.join(app.getPath("appData"), LEGACY_APP_NAME);
 
@@ -317,6 +405,12 @@ function creditRuntimeGoldSeconds(seconds) {
 }
 
 function settleRuntimeGold() {
+  if (expedition && dayKey() !== expedition.day) {
+    try {
+      persistExpedition(advanceExpedition(expedition, 0));
+      notifyExpedition();
+    } catch { console.error("Could not refresh expedition date."); }
+  }
   const now = Date.now();
   if (!lastRuntimeGoldTickAt) {
     lastRuntimeGoldTickAt = now;
@@ -349,15 +443,17 @@ function stopRuntimeGoldTimer() {
 }
 
 function persistCharacter(nextCharacter) {
-  character = normalizeCharacter(nextCharacter, currentVersion());
-  character.hasCharacter = true;
-  store.saveCharacter(character);
+  const next = normalizeCharacter(nextCharacter, currentVersion());
+  next.hasCharacter = true;
+  store.saveCharacter(next);
+  character = next;
   firstRunPending = false;
 
   if (trayAnimator) {
     trayAnimator.updateCharacter(character);
   }
 
+  notifyAppState();
   return character;
 }
 
@@ -380,8 +476,9 @@ function findQuest(questId) {
 }
 
 function saveQuestRecords(nextQuests, options = {}) {
-  quests = normalizeQuests(nextQuests, currentVersion());
-  store.saveQuests(quests);
+  const next = normalizeQuests(nextQuests, currentVersion());
+  store.saveQuests(next);
+  quests = next;
   scheduleAllReminders();
 
   if (options.notify !== false) {
@@ -513,18 +610,7 @@ function scheduleAllReminders() {
 }
 
 function openQuestDetailWindow(questId) {
-  const browserWindow = openWindow("quests");
-  const sendQuest = () => {
-    if (!browserWindow.isDestroyed()) {
-      browserWindow.webContents.send("quest:show-detail", questId);
-    }
-  };
-
-  if (browserWindow.webContents.isLoading()) {
-    browserWindow.webContents.once("did-finish-load", sendQuest);
-  } else {
-    setTimeout(sendQuest, 50);
-  }
+  showTrayPanel("quests", questId);
 }
 
 function showReminderNotification(quest) {
@@ -667,10 +753,57 @@ function refreshTrayMenu() {
   tray.setContextMenu(null);
 }
 
-function hideTrayPanel() {
+function clearTrayPanelDestroyTimer() {
+  if (trayPanelDestroyTimer) {
+    clearTimeout(trayPanelDestroyTimer);
+    trayPanelDestroyTimer = null;
+  }
+}
+
+function destroyTrayPanelWindow() {
+  clearTrayPanelDestroyTimer();
+  outsideClickMonitor?.stop();
+
   if (trayPanelWindow && !trayPanelWindow.isDestroyed()) {
+    trayPanelWindow.destroy();
+  }
+
+  trayPanelWindow = null;
+}
+
+function scheduleTrayPanelDestroy() {
+  if (isQuitting || !trayPanelWindow || trayPanelWindow.isDestroyed()) {
+    return;
+  }
+
+  clearTrayPanelDestroyTimer();
+  trayPanelDestroyTimer = setTimeout(() => {
+    if (trayPanelWindow && !trayPanelWindow.isDestroyed() && !trayPanelWindow.isVisible()) {
+      destroyTrayPanelWindow();
+    }
+  }, TRAY_PANEL_IDLE_DESTROY_MS);
+
+  if (typeof trayPanelDestroyTimer.unref === "function") {
+    trayPanelDestroyTimer.unref();
+  }
+}
+
+function hideTrayPanel() {
+  if (!trayPanelWindow || trayPanelWindow.isDestroyed()) {
+    return;
+  }
+
+  if (isQuitting) {
+    destroyTrayPanelWindow();
+    return;
+  }
+
+  if (trayPanelWindow.isVisible()) {
+    trayPanelWindow.webContents.send("tray:capture-session");
     trayPanelWindow.hide();
   }
+  outsideClickMonitor?.stop();
+  scheduleTrayPanelDestroy();
 }
 
 function positionTrayPanel() {
@@ -681,29 +814,22 @@ function positionTrayPanel() {
   const trayBounds = tray.getBounds();
   const display = screen.getDisplayMatching(trayBounds);
   const workArea = display.workArea;
-  const width = Math.min(TRAY_PANEL_SIZE.width, Math.max(360, workArea.width - 24));
-  const height = Math.min(TRAY_PANEL_SIZE.height, Math.max(360, workArea.height - 24));
-  const gap = 8;
-  const trayCenterX = trayBounds.x + trayBounds.width / 2;
-  const openBelow = trayBounds.y < workArea.y + workArea.height / 2;
-  const x = clamp(Math.round(trayCenterX - width + 52), workArea.x + 8, workArea.x + workArea.width - width - 8);
-  const y = openBelow
-    ? clamp(trayBounds.y + trayBounds.height + gap, workArea.y + 8, workArea.y + workArea.height - height - 8)
-    : clamp(trayBounds.y - height - gap, workArea.y + 8, workArea.y + workArea.height - height - 8);
-
-  trayPanelWindow.setBounds({ x, y, width, height });
+  trayPanelWindow.setBounds(trayPanelBounds(trayBounds, workArea));
 }
 
 function createTrayPanelWindow() {
   if (trayPanelWindow && !trayPanelWindow.isDestroyed()) {
+    clearTrayPanelDestroyTimer();
     return trayPanelWindow;
   }
+
+  clearTrayPanelDestroyTimer();
 
   trayPanelWindow = new BrowserWindow({
     width: TRAY_PANEL_SIZE.width,
     height: TRAY_PANEL_SIZE.height,
-    minWidth: 360,
-    minHeight: 360,
+    minWidth: 1,
+    minHeight: 1,
     frame: false,
     resizable: false,
     fullscreenable: false,
@@ -722,10 +848,17 @@ function createTrayPanelWindow() {
   });
 
   trayPanelWindow.on("blur", () => {
-    hideTrayPanel();
+    // macOS uses actual mouse-down events, not keyboard focus loss or native pickers.
+    if (process.platform !== "darwin") hideTrayPanel();
+    else trayPanelWindow?.webContents.send("tray:capture-session");
+  });
+
+  trayPanelWindow.on("close", (event) => {
+    if (!isQuitting) event.preventDefault();
   });
 
   trayPanelWindow.on("closed", () => {
+    clearTrayPanelDestroyTimer();
     trayPanelWindow = null;
   });
 
@@ -736,17 +869,30 @@ function createTrayPanelWindow() {
   return trayPanelWindow;
 }
 
-function toggleTrayPanel() {
+function showTrayPanel(route, questId) {
   const panelWindow = createTrayPanelWindow();
-
-  if (panelWindow.isVisible()) {
-    panelWindow.hide();
-    return;
+  if (TRAY_ROUTES.has(route)) {
+    traySession.route = route;
+    if (questId) traySession.questRoute = { mode: "detail", id: questId, editing: false, page: 1 };
+    if (!panelWindow.webContents.isLoading()) panelWindow.webContents.send("tray:navigate", { route, questId });
   }
-
-  positionTrayPanel();
+  clearTrayPanelDestroyTimer();
+  // Reposition only on open/display changes, never in response to page content.
+  if (!panelWindow.isVisible()) positionTrayPanel();
   panelWindow.show();
   panelWindow.focus();
+  outsideClickMonitor?.start();
+  return panelWindow;
+}
+
+function toggleTrayPanel() {
+  if (trayPanelWindow?.isVisible()) hideTrayPanel();
+  else showTrayPanel();
+}
+
+function showTrayContextMenu() {
+  hideTrayPanel();
+  tray?.popUpContextMenu(createMoreMenu());
 }
 
 function createTray() {
@@ -761,7 +907,7 @@ function createTray() {
   });
 
   tray.on("right-click", () => {
-    toggleTrayPanel();
+    showTrayContextMenu();
   });
 
   cpuMonitor.on("change", (percent) => {
@@ -776,57 +922,7 @@ function createTray() {
 }
 
 function openWindow(view) {
-  hideTrayPanel();
-
-  if (windows.has(view)) {
-    const existingWindow = windows.get(view);
-    if (existingWindow && !existingWindow.isDestroyed()) {
-      existingWindow.show();
-      existingWindow.focus();
-      return existingWindow;
-    }
-  }
-
-  const config = WINDOW_CONFIG[view] || WINDOW_CONFIG.customization;
-  const { width, height } = resolveWindowBounds(config);
-  const browserWindow = new BrowserWindow({
-    title: t(config.titleKey),
-    width,
-    height,
-    minWidth: Math.min(width, 520),
-    minHeight: Math.min(height, 360),
-    icon: getAppIcon(),
-    show: false,
-    backgroundColor: "#F6F7F9",
-    webPreferences: {
-      preload: path.join(__dirname, "../preload/preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-
-  windows.set(view, browserWindow);
-
-  browserWindow.on("close", () => {
-    if (!isQuitting && view === "customization") {
-      persistDefaultCharacterIfNeeded();
-    }
-  });
-
-  browserWindow.on("closed", () => {
-    windows.delete(view);
-  });
-
-  browserWindow.once("ready-to-show", () => {
-    browserWindow.show();
-    browserWindow.focus();
-  });
-
-  browserWindow.loadFile(path.join(__dirname, "../renderer/index.html"), {
-    query: { view }
-  });
-
-  return browserWindow;
+  return showTrayPanel(view);
 }
 
 function resolveWindowBounds(config) {
@@ -846,6 +942,7 @@ function clamp(value, min, max) {
 }
 
 function fitWindowToContent(browserWindow, requestedSize) {
+  if (browserWindow === trayPanelWindow) return;
   if (!browserWindow || browserWindow.isDestroyed() || !requestedSize) {
     return;
   }
@@ -875,6 +972,12 @@ function fitWindowToContent(browserWindow, requestedSize) {
 }
 
 function registerIpcHandlers() {
+  ipcMain.handle("tray:get-session", () => normalizeTraySession(traySession));
+  ipcMain.on("tray:save-session", (event, session) => {
+    if (event.sender !== trayPanelWindow?.webContents) return;
+    try { traySession = normalizeTraySession(session); } catch { /* Reject oversized draft snapshots. */ }
+  });
+  ipcMain.handle("app:quit", () => { isQuitting = true; app.quit(); });
   ipcMain.handle("state:get", () => getPublicState());
 
   ipcMain.handle("character:render", (_event, draft, frameIndex, scale) => {
@@ -882,12 +985,26 @@ function registerIpcHandlers() {
       { ...character, ...(draft || {}), equipped: (draft && draft.equipped) || character.equipped },
       currentVersion()
     );
-    return renderCharacterDataUrl(normalized, frameIndex, scale || 8);
+    const safeFrame = Number.isInteger(frameIndex) && frameIndex >= 0 ? frameIndex % 4 : 0;
+    const safeScale = Number.isFinite(scale) ? Math.min(12, Math.max(1, Math.round(scale))) : 8;
+    return renderCharacterDataUrl(normalized, safeFrame, safeScale);
+  });
+
+  ipcMain.handle("expedition:action", (_event, payload) => {
+    if (!payload || !["start", "pause", "select"].includes(payload.action)) throw new Error("Invalid expedition action");
+    if (payload.action === "select" && !REWARDS.some(({ id }) => id === payload.targetId)) throw new Error("Unknown reward");
+    return runExpeditionAction(payload.action, payload.targetId);
   });
 
   ipcMain.handle("character:save", (_event, draft) => {
     if (!draft || !isValidHexColor(draft.bodyColor)) {
       throw new Error("Body color must be a valid #RRGGBB hex color.");
+    }
+    if (Object.hasOwn(draft, "hair") && draft.hair !== null && (getItemById(draft.hair)?.slot !== "hair" || !ownsItem(draft.hair))) {
+      throw new Error("Invalid hairstyle");
+    }
+    if (Object.hasOwn(draft, "hairColor") && draft.hairColor !== null && !HAIR_COLORS.includes(draft.hairColor)) {
+      throw new Error("Invalid hair color");
     }
 
     const nextCharacter = {
@@ -895,6 +1012,8 @@ function registerIpcHandlers() {
       gender: draft.gender,
       bodyColor: draft.bodyColor,
       eyeType: draft.eyeType,
+      hairColor: Object.hasOwn(draft, "hairColor") ? draft.hairColor : character.hairColor,
+      equipped: { ...character.equipped, hair: Object.hasOwn(draft, "hair") ? draft.hair : character.equipped.hair },
       hasCharacter: true
     };
 
@@ -916,8 +1035,10 @@ function registerIpcHandlers() {
 
     if (action === "unequip") {
       persistCharacter(unequipSlot(character, slot));
-    } else {
+    } else if (action === "equip" && ownsItem(itemId)) {
       persistCharacter(equipItem(character, itemId));
+    } else {
+      throw new Error("Item not owned or invalid action");
     }
 
     return getPublicState();
@@ -1012,25 +1133,20 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle("tray:open-view", (_event, view) => {
-    const allowedViews = new Set(["customization", "inventory", "quests", "settings", "about"]);
-    if (allowedViews.has(view)) {
+    if (TRAY_ROUTES.has(view)) {
       openWindow(view);
     }
     return getPublicState();
   });
 
   ipcMain.handle("tray:show-menu", () => {
-    hideTrayPanel();
-    if (tray) {
-      setTimeout(() => {
-        tray.popUpContextMenu(createMoreMenu());
-      }, 0);
-    }
+    showTrayContextMenu();
     return getPublicState();
   });
 
   ipcMain.handle("window:close", (event) => {
     const browserWindow = BrowserWindow.fromWebContents(event.sender);
+    if (browserWindow === trayPanelWindow) return;
     if (browserWindow) {
       browserWindow.close();
     }
@@ -1065,6 +1181,12 @@ function bootstrap() {
   wallet = normalizeWallet(store.loadWallet());
   store.saveWallet(wallet);
 
+  expedition = normalizeExpedition(store.loadExpedition());
+  persistExpedition(expedition);
+  for (const [slot, id] of Object.entries(character.equipped)) {
+    if (id && !ownsItem(id)) character = unequipSlot(character, slot);
+  }
+
   cpuMonitor = new CpuMonitor(1000);
   cpuMonitor.start();
 
@@ -1077,9 +1199,21 @@ function bootstrap() {
   });
 
   registerIpcHandlers();
+  outsideClickMonitor = createOutsideClickMonitor(app, (click) => {
+    if (trayPanelWindow?.isVisible() && tray && isOutsideClick(click, trayPanelWindow.getBounds(), tray.getBounds(), process.pid)) hideTrayPanel();
+  });
+  for (const event of ["display-metrics-changed", "display-removed", "display-added"]) {
+    screen.on(event, () => { if (trayPanelWindow?.isVisible()) positionTrayPanel(); });
+  }
   scheduleAllReminders();
   createTray();
   startRuntimeGoldTimer();
+  powerMonitor.on("suspend", () => {
+    if (expedition?.running) {
+      try { runExpeditionAction("pause"); } catch { console.error("Could not save expedition on suspend."); }
+    }
+  });
+  powerMonitor.on("resume", () => { if (expedition) notifyExpedition(); });
 
   if (process.platform === "darwin" && app.dock) {
     app.dock.hide();
@@ -1109,6 +1243,12 @@ if (!gotSingleInstanceLock) {
 
   app.on("before-quit", () => {
     isQuitting = true;
+    updateManager?.stop();
+    if (expedition?.running) {
+      try { runExpeditionAction("pause"); } catch { console.error("Could not save expedition on exit."); }
+    }
+    stopExpeditionTimer();
+    destroyTrayPanelWindow();
     if (trayAnimator) {
       trayAnimator.stop();
     }

@@ -1,7 +1,8 @@
-const appRoot = document.getElementById("app");
+let appRoot = document.getElementById("app");
 const api = window.osHeroApi || window.osBoyApi;
 const view = new URLSearchParams(window.location.search).get("view") || "customization";
 document.body.classList.toggle("tray-window", view === "tray");
+document.documentElement.classList.toggle("inventory-window", view === "inventory");
 
 let state = null;
 let previewTimer = null;
@@ -10,6 +11,11 @@ let updateUnsubscribe = null;
 let stateUnsubscribe = null;
 let walletUnsubscribe = null;
 let questDetailUnsubscribe = null;
+let expeditionUnsubscribe = null;
+let customizationDraft = null;
+let customizationHairDirty = false;
+const inventoryRoute = { tab: "hair", item: null, scroll: new Map() };
+const previewRequests = new WeakMap();
 const CHARACTER_PREVIEW_SCALE = 8;
 let questRoute = {
   mode: "list",
@@ -108,7 +114,14 @@ function genderDescription(gender) {
 }
 
 async function updatePreview(imgElement, character, scale = CHARACTER_PREVIEW_SCALE) {
-  imgElement.src = await api.renderCharacter(character, previewFrame, scale);
+  const request = (previewRequests.get(imgElement) || 0) + 1;
+  previewRequests.set(imgElement, request);
+  const canonical = JSON.stringify(character) === state.hero?.key;
+  const src = canonical ? state.hero.frames[previewFrame] : await api.renderCharacter(character, previewFrame, 1);
+  if (imgElement.isConnected && previewRequests.get(imgElement) === request) {
+    imgElement.src = src;
+    imgElement.dataset.heroKey = canonical ? state.hero.key : "draft";
+  }
 }
 
 function startPreviewAnimation(imgElement, getCharacter, scale = CHARACTER_PREVIEW_SCALE) {
@@ -117,11 +130,13 @@ function startPreviewAnimation(imgElement, getCharacter, scale = CHARACTER_PREVI
   }
 
   const render = () => {
+    if (document.hidden) return;
     previewFrame = (previewFrame + 1) % 4;
-    updatePreview(imgElement, getCharacter(), scale);
+    updatePreview(imgElement, getCharacter(), scale).catch(() => {});
   };
 
-  render();
+  // Paint once even during initial hidden load; later animation stays paused while hidden.
+  updatePreview(imgElement, getCharacter(), scale).catch(() => {});
   previewTimer = setInterval(render, 420);
 }
 
@@ -137,6 +152,7 @@ function renderPreviewPane(note) {
 }
 
 function requestWindowFit() {
+  if (view === "tray") return;
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       const rect = appRoot.getBoundingClientRect();
@@ -149,10 +165,12 @@ function requestWindowFit() {
 }
 
 function renderCustomization() {
-  let draft = {
+  let draft = customizationDraft || {
     ...state.character,
     equipped: { ...state.character.equipped }
   };
+  draft.equipped = { ...state.character.equipped, hair: customizationHairDirty ? draft.equipped.hair : state.character.equipped.hair };
+  customizationDraft = draft;
 
   appRoot.innerHTML = `
     <div>
@@ -173,6 +191,20 @@ function renderCustomization() {
                   `
                 )
                 .join("")}
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-title" for="hair-style">${textHtml("custom.hair")}</label>
+            <select id="hair-style">
+              <option value="">${textHtml("custom.noHair")}</option>
+              ${state.items.filter((item) => item.slot === "hair").map((item) => `<option value="${item.id}" ${draft.equipped.hair === item.id ? "selected" : ""}>${escapeHtml(itemName(item))}</option>`).join("")}
+            </select>
+          </div>
+          <div class="field-group">
+            <span class="field-title">${textHtml("custom.hairColor")}</span>
+            <div class="hair-colors" role="group" aria-label="${textHtml("custom.hairColor")}">
+              <button class="original-color ${draft.hairColor === null ? "active" : ""}" data-hair-color="" aria-pressed="${draft.hairColor === null}">${textHtml("custom.originalHairColor")}</button>
+              ${state.hairColors.map((color, i) => `<button class="hair-color ${draft.hairColor === color ? "active" : ""}" data-hair-color="${color}" title="${textHtml(`hairColor.${i}`)}" aria-label="${textHtml(`hairColor.${i}`)}" aria-pressed="${draft.hairColor === color}"></button>`).join("")}
             </div>
           </div>
           <div class="field-group">
@@ -216,6 +248,24 @@ function renderCustomization() {
   const saveButton = document.getElementById("save-button");
   const cancelButton = document.getElementById("cancel-button");
 
+  document.getElementById("hair-style").addEventListener("change", (event) => {
+    draft.equipped.hair = event.target.value || null;
+    customizationHairDirty = true;
+    updatePreview(preview, draft);
+  });
+  appRoot.querySelectorAll("[data-hair-color]").forEach((button) => {
+    if (button.dataset.hairColor) button.style.setProperty("--hair-color", button.dataset.hairColor);
+    button.addEventListener("click", () => {
+      draft.hairColor = button.dataset.hairColor || null;
+      appRoot.querySelectorAll("[data-hair-color]").forEach((option) => {
+        const active = (option.dataset.hairColor || null) === draft.hairColor;
+        option.classList.toggle("active", active);
+        option.setAttribute("aria-pressed", String(active));
+      });
+      updatePreview(preview, draft);
+    });
+  });
+
   const validate = () => {
     const valid = isValidHexColor(colorInput.value);
     colorError.textContent = valid ? "" : text("custom.hexError");
@@ -232,6 +282,7 @@ function renderCustomization() {
       ...draft,
       bodyColor: colorInput.value.toUpperCase()
     };
+    customizationDraft = draft;
     colorInput.value = draft.bodyColor;
     colorPicker.value = draft.bodyColor;
     updatePreview(preview, draft);
@@ -281,17 +332,39 @@ function renderCustomization() {
       return;
     }
 
-    await api.saveCharacter({
-      gender: draft.gender,
-      bodyColor: colorInput.value.toUpperCase(),
-      eyeType: draft.eyeType
-    });
-    await api.closeWindow();
+    saveButton.disabled = true;
+    try {
+      await api.saveCharacter({
+        gender: draft.gender,
+        bodyColor: colorInput.value.toUpperCase(),
+        eyeType: draft.eyeType,
+        hair: draft.equipped.hair,
+        hairColor: draft.hairColor
+      });
+      if (view === "tray") {
+        customizationDraft = null;
+        customizationHairDirty = false;
+        clearTrayForm();
+        state = await api.getState();
+        renderCurrentView();
+        persistTrayUi();
+        trayNotice(text("companion.saved"));
+      } else await api.closeWindow();
+    } catch {
+      colorError.textContent = text("companion.error");
+      saveButton.disabled = false;
+    }
   });
 
   cancelButton.addEventListener("click", async () => {
     await api.cancelCustomization();
-    await api.closeWindow();
+    if (view === "tray") {
+      customizationDraft = null;
+      customizationHairDirty = false;
+      clearTrayForm();
+      renderCurrentView();
+      persistTrayUi();
+    } else await api.closeWindow();
   });
 
   startPreviewAnimation(preview, () => draft);
@@ -299,9 +372,9 @@ function renderCustomization() {
 }
 
 function renderInventory() {
-  let currentTab = state.itemCategories[0] ? state.itemCategories[0].id : "head";
-  let selectedItemId = (state.items.find((item) => item.category === currentTab) || state.items[0] || {}).id || null;
-  const scrollTopByTab = new Map();
+  let currentTab = inventoryRoute.tab;
+  let selectedItemId = inventoryRoute.item;
+  const scrollTopByTab = inventoryRoute.scroll;
 
   const rememberScroll = () => {
     const itemList = appRoot.querySelector(".item-list");
@@ -334,6 +407,8 @@ function renderInventory() {
     const filteredItems = state.items.filter((item) => item.category === currentTab);
     const selectedItem = filteredItems.find((item) => item.id === selectedItemId) || filteredItems[0] || null;
     selectedItemId = selectedItem ? selectedItem.id : null;
+    inventoryRoute.tab = currentTab;
+    inventoryRoute.item = selectedItemId;
     const previewCharacter = selectedItem
       ? {
           ...state.character,
@@ -352,6 +427,8 @@ function renderInventory() {
             <strong id="inventory-gold-value">${escapeHtml(formatNumber(currentGold()))}</strong>
           </div>
         </div>
+        ${view === "tray" ? `<label class="inventory-category" for="inventory-category"><span>${textHtml("tray.category")}</span>
+          <select id="inventory-category">${state.itemCategories.map((category) => `<option value="${category.id}" ${currentTab === category.id ? "selected" : ""}>${escapeHtml(categoryName(category.id))}</option>`).join("")}</select></label>` : ""}
         <div class="inventory-layout">
           <section class="inventory-list">
             <nav class="tabs" aria-label="${textHtml("inventory.tabs")}">
@@ -371,6 +448,7 @@ function renderInventory() {
                   const equipped = state.character.equipped[item.slot] === item.id;
                   return `
                     <button class="item-row ${item.id === selectedItemId ? "selected" : ""}" data-item="${item.id}">
+                      <img class="item-thumbnail" src="${state.itemThumbnails[item.id]}" alt="" />
                       <span>
                         <h3>${escapeHtml(itemName(item))}</h3>
                         <p>${textHtml("inventory.slot", { category: categoryName(item.category) })}</p>
@@ -412,6 +490,14 @@ function renderInventory() {
         render();
       });
     });
+    const categorySelect = document.getElementById("inventory-category");
+    if (categorySelect) categorySelect.onchange = () => {
+      rememberScroll();
+      currentTab = categorySelect.value;
+      selectedItemId = null;
+      render();
+      persistTrayUi();
+    };
 
     appRoot.querySelectorAll("[data-item]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -430,12 +516,14 @@ function renderInventory() {
       rememberScroll();
       const isEquipped = state.character.equipped[selectedItem.slot] === selectedItem.id;
       const action = isEquipped && selectedItem.slot !== "clothes" ? "unequip" : "equip";
-      state = await api.updateEquipment({
-        action,
-        itemId: selectedItem.id,
-        slot: selectedItem.slot
-      });
-      render();
+      equipButton.disabled = true;
+      try {
+        state = await api.updateEquipment({ action, itemId: selectedItem.id, slot: selectedItem.slot });
+        render();
+      } catch {
+        appRoot.querySelector(".preview-note").textContent = text("companion.error");
+        equipButton.disabled = false;
+      }
     });
   };
 
@@ -608,11 +696,11 @@ function renderQuestList() {
                 ? pageItems
                     .map(
                       (quest) => `
-                        <tr class="quest-row" data-quest-id="${escapeHtml(quest.id)}">
-                          <td>${escapeHtml(questTypeName(quest.type))}</td>
-                          <td class="quest-title-cell">${escapeHtml(quest.title)}</td>
-                          <td>${renderQuestStatusSelect(quest)}</td>
-                          <td>${escapeHtml(formatDateTime(quest.createdAt))}</td>
+                        <tr class="quest-row" tabindex="0" data-quest-id="${escapeHtml(quest.id)}">
+                          <td data-label="${textHtml("quest.type")}">${escapeHtml(questTypeName(quest.type))}</td>
+                          <td data-label="${textHtml("quest.title")}" class="quest-title-cell">${escapeHtml(quest.title)}</td>
+                          <td data-label="${textHtml("quest.status")}">${renderQuestStatusSelect(quest)}</td>
+                          <td data-label="${textHtml("quest.createdAt")}">${escapeHtml(formatDateTime(quest.createdAt))}</td>
                         </tr>
                       `
                     )
@@ -638,6 +726,7 @@ function renderQuestList() {
   });
 
   appRoot.querySelectorAll("[data-quest-id]").forEach((row) => {
+    row.onkeydown = (event) => { if (event.target === row && ["Enter", " "].includes(event.key)) { event.preventDefault(); row.click(); } };
     row.addEventListener("click", (event) => {
       if (event.target.closest("select, button, a")) {
         return;
@@ -816,6 +905,7 @@ function renderQuestForm() {
 
     try {
       state = await api.saveQuest(payload);
+      if (view === "tray") clearTrayForm();
       questRoute = { mode: "list", type: null, id: null, editing: false, page: 1 };
       renderQuests();
     } catch (error) {
@@ -824,6 +914,7 @@ function renderQuestForm() {
   });
 
   cancelButton.addEventListener("click", () => {
+    if (view === "tray") clearTrayForm();
     questRoute = existing
       ? { mode: "detail", type: null, id: existing.id, editing: false, page: questRoute.page }
       : { mode: "list", type: null, id: null, editing: false, page: questRoute.page };
@@ -950,6 +1041,7 @@ function renderQuestDetail() {
 }
 
 function renderQuests() {
+  if (view === "tray") scheduleTrayUiSave();
   if (questRoute.mode === "type") {
     renderQuestTypePicker();
     return;
@@ -1079,6 +1171,7 @@ function refreshUpdatePanel(update) {
 }
 
 function renderSettings() {
+  if (view === "tray") return renderTraySettings();
   const currentLanguage =
     state.languageOptions.find((language) => language.id === state.settings.language) || state.languageOptions[0];
 
@@ -1170,14 +1263,15 @@ function renderAbout() {
           </div>
         </dl>
         <div class="action-row">
-          <button class="primary-button" id="close-button">${textHtml("common.close")}</button>
+          <button class="primary-button" id="close-button">${textHtml(view === "tray" ? "common.back" : "common.close")}</button>
         </div>
       </section>
     </div>
   `;
 
   document.getElementById("close-button").addEventListener("click", () => {
-    api.closeWindow();
+    if (view === "tray") navigateTray("settings");
+    else api.closeWindow();
   });
   requestWindowFit();
 }
@@ -1236,114 +1330,49 @@ function renderTrayQuestRows(quests) {
 }
 
 function renderTrayPanel() {
-  const quests = trayPanelQuests();
-
-  appRoot.innerHTML = `
-    <div class="tray-panel-shell">
-      <section class="tray-content-pane">
-        <div class="tray-title-row">
-          <h1>${textHtml("tray.panelTitle")}</h1>
-          <button class="primary-button tray-header-button" data-tray-view="quests">${textHtml("quest.new")}</button>
-        </div>
-        <div class="tray-table-frame">
-          <table class="quest-table tray-quest-table">
-            <thead>
-              <tr>
-                <th>${textHtml("quest.type")}</th>
-                <th>${textHtml("quest.title")}</th>
-                <th>${textHtml("quest.status")}</th>
-                <th>${textHtml("quest.createdAt")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${renderTrayQuestRows(quests)}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <nav class="tray-nav-pane" aria-label="${textHtml("tray.panelNav")}">
-        <button class="tray-nav-button" data-tray-view="customization">
-          <span class="tray-nav-icon hero-icon"><img id="tray-hero-preview" alt="${textHtml("custom.previewAlt")}" /></span>
-          <strong>${textHtml("tray.customize")}</strong>
-        </button>
-        <button class="tray-nav-button" data-tray-view="inventory">
-          <span class="tray-nav-icon bag-icon" aria-hidden="true"></span>
-          <strong>${textHtml("tray.inventory")}</strong>
-        </button>
-        <button class="tray-nav-button" data-tray-view="quests">
-          <span class="tray-nav-icon quest-icon" aria-hidden="true"></span>
-          <strong>${textHtml("tray.quests")}</strong>
-        </button>
-        <button class="tray-nav-button" data-tray-view="settings">
-          <span class="tray-nav-icon settings-icon" aria-hidden="true"></span>
-          <strong>${textHtml("tray.settings")}</strong>
-        </button>
-        <button class="tray-nav-button" id="tray-more-button">
-          <span class="tray-nav-icon more-icon" aria-hidden="true"></span>
-          <strong>${textHtml("tray.more")}</strong>
-        </button>
-      </nav>
-    </div>
-  `;
-
-  const heroPreview = document.getElementById("tray-hero-preview");
-  api.renderCharacter(state.character, 0, 4).then((src) => {
-    heroPreview.src = src;
-  });
-
-  appRoot.querySelectorAll("[data-tray-view]").forEach((button) => {
-    button.addEventListener("click", () => {
-      api.openTrayView(button.dataset.trayView);
-    });
-  });
-
-  appRoot.querySelectorAll("[data-tray-quest]").forEach((row) => {
-    row.addEventListener("click", () => {
-      api.openQuestDetailWindow(row.dataset.trayQuest);
-    });
-  });
-
-  document.getElementById("tray-more-button").addEventListener("click", () => {
-    api.showTrayMenu();
-  });
+  renderCompanionPanel();
 }
 
 function renderCurrentView() {
-  if (view === "tray") {
-    renderTrayPanel();
-    return;
-  }
-
-  if (view === "inventory") {
-    renderInventory();
-    return;
-  }
-
-  if (view === "quests") {
-    renderQuests();
-    return;
-  }
-
-  if (view === "settings") {
-    renderSettings();
-    return;
-  }
-
-  if (view === "about") {
-    renderAbout();
-    return;
-  }
-
-  renderCustomization();
+  document.documentElement.lang = state.settings.language;
+  if (previewTimer) clearInterval(previewTimer);
+  previewTimer = null;
+  if (view === "tray") ensureTrayShell();
+  const route = currentView();
+  if (route === "companion") renderTrayPanel();
+  else if (route === "inventory") renderInventory();
+  else if (route === "quests") renderQuests();
+  else if (route === "settings") renderSettings();
+  else if (route === "about") renderAbout();
+  else if (route === "updates") renderTrayUpdates();
+  else renderCustomization();
+  restoreTrayForm();
+  paintCanonicalHero();
 }
 
 async function main() {
   state = await api.getState();
+  if (view === "tray") {
+    restoreTraySession(await api.getTraySession());
+    api.onTrayNavigate(({ route, questId }) => navigateTray(route, questId));
+    api.onCaptureTraySession(persistTrayUi);
+  }
   renderCurrentView();
 
   stateUnsubscribe = api.onAppState((nextState) => {
+    const unchanged = JSON.stringify(state.character) === JSON.stringify(nextState.character) && state.settings.language === nextState.settings.language;
+    captureTrayUi();
     state = nextState;
+    paintCanonicalHero();
+    if (currentView() === "customization" && unchanged) return;
+    if (currentView() === "inventory" && unchanged) return;
     renderCurrentView();
+  });
+  updateUnsubscribe = api.onUpdateState((update) => refreshUpdatePanel(update));
+
+  expeditionUnsubscribe = api.onExpeditionState((nextExpedition) => {
+    state.expedition = nextExpedition;
+    if (view === "tray") updateCompanionProgress();
   });
 
   if (api.onWalletState) {
@@ -1356,7 +1385,7 @@ async function main() {
     });
   }
 
-  if (view === "quests" && api.onShowQuestDetail) {
+  if ((view === "quests" || view === "tray") && api.onShowQuestDetail) {
     questDetailUnsubscribe = api.onShowQuestDetail((questId) => {
       questRoute = {
         mode: "detail",
@@ -1371,6 +1400,7 @@ async function main() {
 }
 
 window.addEventListener("beforeunload", () => {
+  if (expeditionUnsubscribe) expeditionUnsubscribe();
   if (previewTimer) {
     clearInterval(previewTimer);
   }

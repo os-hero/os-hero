@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const PLACEHOLDER_UPDATE_URL = "https://updates.example.com/os-hero/";
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 let electronAutoUpdater = null;
 
@@ -107,7 +108,7 @@ function createInitialState(enabled, feedUrl, currentVersion) {
 }
 
 class UpdateManager {
-  constructor({ app, notifyState, beforeInstall }) {
+  constructor({ app, notifyState, beforeInstall, autoUpdater, timers = globalThis }) {
     this.app = app;
     this.notifyState = notifyState;
     this.beforeInstall = beforeInstall || (() => {});
@@ -119,6 +120,10 @@ class UpdateManager {
     this.installAfterDownload = false;
     this.startupCheckStarted = false;
     this.autoUpdater = null;
+    this.providedAutoUpdater = autoUpdater;
+    this.timers = timers;
+    this.periodicTimer = null;
+    this.automaticCheckPromise = null;
 
     if (this.enabled) {
       this.configureAutoUpdater();
@@ -126,9 +131,11 @@ class UpdateManager {
   }
 
   configureAutoUpdater() {
-    this.autoUpdater = getAutoUpdater();
+    this.autoUpdater = this.providedAutoUpdater || getAutoUpdater();
     this.autoUpdater.autoDownload = false;
     this.autoUpdater.autoInstallOnAppQuit = true;
+    this.autoUpdater.allowPrerelease = false;
+    this.autoUpdater.allowDowngrade = false;
 
     if (!this.app.isPackaged) {
       this.autoUpdater.forceDevUpdateConfig = true;
@@ -136,7 +143,8 @@ class UpdateManager {
 
     this.autoUpdater.setFeedURL({
       provider: "generic",
-      url: this.feedUrl
+      url: this.feedUrl,
+      useMultipleRangeRequest: false
     });
 
     this.autoUpdater.on("checking-for-update", () => {
@@ -217,19 +225,31 @@ class UpdateManager {
   }
 
   async checkAtLaunch() {
-    if (this.startupCheckStarted) {
+    if (this.startupCheckStarted || !this.app.isPackaged || !this.enabled) {
       return this.state;
     }
 
     this.startupCheckStarted = true;
-    const state = await this.checkForUpdates();
-    this.patchState({ startupCheckCompleted: true });
+    this.periodicTimer = this.timers.setInterval(() => { void this.checkAutomatically(); }, UPDATE_CHECK_INTERVAL_MS);
+    this.periodicTimer.unref?.();
+    await this.checkAutomatically();
+    return this.patchState({ startupCheckCompleted: true });
+  }
 
-    if (state.status === "available") {
-      await this.downloadUpdate(false);
-    }
+  async checkAutomatically() {
+    if (this.automaticCheckPromise) return this.automaticCheckPromise;
+    if (this.downloadPromise || ["downloaded", "installing"].includes(this.state.status)) return this.state;
+    this.automaticCheckPromise = (async () => {
+      const state = await this.checkForUpdates();
+      if (state.status === "available") await this.downloadUpdate(false);
+      return this.state;
+    })().finally(() => { this.automaticCheckPromise = null; });
+    return this.automaticCheckPromise;
+  }
 
-    return this.state;
+  stop() {
+    if (this.periodicTimer) this.timers.clearInterval(this.periodicTimer);
+    this.periodicTimer = null;
   }
 
   async checkForUpdates() {
@@ -241,7 +261,7 @@ class UpdateManager {
       return this.checkPromise;
     }
 
-    if (this.downloadPromise) {
+    if (this.downloadPromise || ["downloaded", "installing"].includes(this.state.status)) {
       return this.state;
     }
 
@@ -289,7 +309,7 @@ class UpdateManager {
       return this.state;
     }
 
-    this.installAfterDownload = Boolean(installAfterDownload);
+    this.installAfterDownload = this.installAfterDownload || Boolean(installAfterDownload);
 
     if (this.downloadPromise) {
       return this.downloadPromise;
@@ -352,5 +372,6 @@ class UpdateManager {
 module.exports = {
   UpdateManager,
   PLACEHOLDER_UPDATE_URL,
+  UPDATE_CHECK_INTERVAL_MS,
   resolveUpdateFeedUrl
 };

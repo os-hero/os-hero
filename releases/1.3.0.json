@@ -1,0 +1,45 @@
+{
+  "version": "1.3.0",
+  "copy": {
+    "ko": {
+      "summary": "하나의 트레이 팝업, 확장된 꾸미기와 히어로 탐험을 제공합니다.",
+      "notes": [
+        "히어로·인벤토리·퀘스트·환경설정을 같은 크기의 반응형 팝업 안에서 이동합니다.",
+        "트레이 우클릭은 OS 메뉴를 열며 더보기 기능은 환경설정으로 통합했습니다.",
+        "기존 24px 히어로를 유지하며 6개 장착 슬롯, 15개 신규 기본 아이템과 머리색 선택을 추가했습니다.",
+        "모든 화면과 메뉴바가 같은 저장된 히어로를 공유하며 긴머리의 얼굴 가림을 개선했습니다.",
+        "퀘스트 완료 보상과 분리된 탐험 시간으로 꾸미기 아이템을 획득합니다.",
+        "숨겨진 팝업은 메모리를 정리하고 편집 초안은 앱 실행 중 복원합니다.",
+        "시작 시 및 6시간마다 안정 채널을 확인하고 다운로드합니다. 사용 중 강제 재시작하지 않습니다."
+      ]
+    },
+    "en": {
+      "summary": "One responsive tray popup, an expanded wardrobe, and Hero expeditions.",
+      "notes": [
+        "Navigate Hero, inventory, quests and settings inside one fixed-size responsive popup.",
+        "Right-click the tray for the native menu; former More actions are now in Settings.",
+        "Preserve the classic 24px Hero with six equipment slots, fifteen new starter items and hair colors.",
+        "Share the same saved Hero across all views and the menu bar, with face-safe long hair.",
+        "Earn expedition cosmetics through companion time, independently of completing self-created quests.",
+        "Release the hidden renderer while retaining unsaved drafts during the app session.",
+        "Check the stable channel on launch and every six hours, download in the background, and never force a restart during use."
+      ]
+    },
+    "zh": {
+      "summary": "统一的托盘弹窗、扩展的装扮系统和英雄探索。",
+      "notes": [
+        "英雄、背包、任务和设置均在同一个固定尺寸的响应式弹窗中切换。",
+        "右键点击托盘打开系统菜单，原更多功能整合到设置。",
+        "保留经典 24 像素英雄，新增六个装备槽、十五件初始物品和发色选择。",
+        "所有界面与菜单栏使用同一个已保存英雄，长发不再遮挡脸部。",
+        "探索装扮奖励根据陪伴时间获得，与自行创建的任务完成次数无关。",
+        "隐藏弹窗后释放渲染进程，并在本次运行中保留编辑草稿。",
+        "启动时和每六小时自动检查稳定版本并后台下载，使用中不会强制重启。"
+      ]
+    }
+  },
+  "installation": {
+    "en": "Apple Silicon macOS 12 or later. The old public 1.2.0 installer was ad-hoc signed, so its automatic update may fail signature validation. Install this Developer ID-signed release from the DMG once if needed; do not delete your application data. Later signed releases use the same stable update channel.",
+    "ko": "Apple Silicon, macOS 12 이상용입니다. 과거 공개 1.2.0은 임시(ad-hoc) 서명이라 자동 업데이트의 서명 검증이 실패할 수 있습니다. 이 경우 DMG로 정식 서명 버전을 한 번 설치하세요. 앱 데이터는 삭제하지 마세요. 이후 정식 서명 버전은 같은 안정 업데이트 채널을 사용합니다."
+  }
+}

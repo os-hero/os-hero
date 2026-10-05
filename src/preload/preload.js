@@ -2,6 +2,25 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 const api = {
   getState: () => ipcRenderer.invoke("state:get"),
+  getTraySession: () => ipcRenderer.invoke("tray:get-session"),
+  saveTraySession: (session) => ipcRenderer.send("tray:save-session", session),
+  quitApp: () => ipcRenderer.invoke("app:quit"),
+  onTrayNavigate: (callback) => {
+    const listener = (_event, target) => callback(target);
+    ipcRenderer.on("tray:navigate", listener);
+    return () => ipcRenderer.removeListener("tray:navigate", listener);
+  },
+  onCaptureTraySession: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on("tray:capture-session", listener);
+    return () => ipcRenderer.removeListener("tray:capture-session", listener);
+  },
+  expeditionAction: (payload) => ipcRenderer.invoke("expedition:action", payload),
+  onExpeditionState: (callback) => {
+    const listener = (_event, expedition) => callback(expedition);
+    ipcRenderer.on("expedition:changed", listener);
+    return () => ipcRenderer.removeListener("expedition:changed", listener);
+  },
   renderCharacter: (character, frameIndex, scale) =>
     ipcRenderer.invoke("character:render", character, frameIndex, scale),
   saveCharacter: (draft) => ipcRenderer.invoke("character:save", draft),

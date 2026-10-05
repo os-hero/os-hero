@@ -1,0 +1,135 @@
+/* Fixed window shell; only the bounded page/list scrolls vertically. */
+.tray-window { overflow: hidden; }
+.tray-window .app-shell { width: 100%; height: 100dvh; }
+.tray-shell { height: 100%; display: flex; flex-direction: column; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.tray-shell-header { display: flex; align-items: center; gap: 12px; height: 64px; min-height: 64px; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+.tray-shell-header strong { font-size: 20px; }
+.tray-shell-header .icon-button { margin-left: auto; flex-shrink: 0; }
+.tray-shell-header .active { background: #eaf2fc; }
+.tray-shell-body { display: grid; grid-template-columns: 148px minmax(0, 1fr); flex: 1; min-width: 0; min-height: 0; }
+.tray-rail { display: flex; flex-direction: column; min-width: 0; overflow-y: auto; border-right: 1px solid var(--line); background: #f8fafc; padding-top: 12px; }
+.tray-rail button { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 14px 16px; border: 0; border-radius: 0; text-align: left; background: transparent; font-weight: 600; color: #4c5b6d; overflow-wrap: anywhere; }
+.tray-rail button[aria-current] { color: var(--accent); background: #e8f2fe; }
+.tray-rail button:hover { background: #eef3f8; }
+.tray-page { min-width: 0; min-height: 0; width: 100%; padding: 22px 20px; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; overscroll-behavior: contain; outline: none; }
+.tray-page > *, .tray-page section, .tray-page div, .tray-page label, .tray-page dl, .tray-page dd { min-width: 0; }
+.tray-page :is(h1,h2,h3,p,span,strong,dd,dt,button) { overflow-wrap: anywhere; }
+.tray-page :is(input,select,textarea) { min-width: 0; max-width: 100%; }
+.tray-page :is(button,select) { white-space: normal; }
+.tray-page .window-title { font-size: 20px; }
+.tray-page .preview-pane, .tray-page .form-pane, .tray-page .inventory-list, .tray-page .quest-panel, .tray-page .settings-panel, .tray-page .about-panel { border: 0; border-radius: 0; box-shadow: none; padding: 0; }
+.tray-page .preview-frame { border: 0; border-radius: 0; background: transparent; width: 100%; max-width: 192px; }
+.tray-page .preview-frame img { width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; }
+.tray-page .preview-pane { gap: 8px; }
+.tray-page .preview-note { display: none; }
+.tray-page .side-preview .form-pane .preview-note { display: block; }
+.tray-page .inventory-header { flex-direction: row; align-items: center; gap: 12px; margin-bottom: 22px; }
+.tray-page .gold-balance { border: 0; padding: 0; background: none; color: var(--muted); min-height: 24px; gap: 6px; white-space: normal; }
+.tray-page .gold-balance strong { font-size: 14px; }
+.inventory-category { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+.inventory-category select { width: min(224px, 100%); }
+.tray-page select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); min-height: 38px; }
+.tray-page .inventory-list .tabs { display: none; }
+.tray-page .inventory-layout { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.tray-page .item-list { display: flex; flex-direction: column; gap: 0; max-height: calc(100dvh - 214px); scrollbar-gutter: stable; padding-right: 2px; }
+.tray-page .item-row { grid-template-columns: 36px minmax(0, 1fr); gap: 10px; border: 1px solid transparent; border-bottom-color: var(--line); border-radius: 0; background: transparent; padding: 12px 8px; min-height: 66px; flex-shrink: 0; text-align: left; }
+.tray-page .item-row.selected { border: 1px solid var(--accent); border-radius: 6px; background: #edf5ff; }
+.tray-page .item-thumbnail { width: 36px; height: 36px; }
+.tray-page .item-row h3 { font-weight: 500; font-size: 14px; }
+.tray-page .item-row p { display: none; }
+.tray-page .item-row .badge { grid-column: 2; justify-self: start; min-height: 16px; padding: 0; background: none; font-size: 11px; }
+.tray-page .item-row .badge:not(.equipped) { display: none; }
+.tray-page .side-preview { position: sticky; top: 0; border-left: 1px solid var(--line); padding-left: 18px; text-align: center; }
+.tray-page .side-preview .field-group { margin: 14px 0 0; }
+.tray-page .side-preview .field-title { margin-bottom: 4px; }
+.tray-page .side-preview .action-row { margin-top: 18px; }
+.tray-page #equip-button { width: 100%; min-height: 40px; }
+.tray-page .split { grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr); gap: 18px; align-items: start; }
+.tray-page .split .preview-pane { position: sticky; top: 0; }
+.tray-page .segmented { gap: 6px; }
+.tray-page .choice-button span { display: none; }
+.tray-page .choice-button { min-height: 40px; }
+.tray-page .field-group { margin-bottom: 18px; }
+.tray-page .color-row { grid-template-columns: minmax(0, 1fr) 42px; }
+.tray-page .action-row, .tray-page .pagination-row { flex-wrap: wrap; }
+.tray-page .info-line { grid-template-columns: minmax(0, 110px) minmax(0, 1fr); }
+.tray-page .info-line dd, .tray-page .quest-body-block p { overflow-wrap: anywhere; }
+.tray-page .quest-table td { padding: 10px 5px; overflow-wrap: anywhere; }
+.tray-page .quest-status-select { min-width: 0; }
+.tray-page .quest-type-grid { grid-template-columns: 1fr; }
+.tray-page .quest-title-cell { white-space: normal; text-overflow: clip; }
+.tray-page .title-row { flex-direction: row; align-items: center; }
+.tray-page .bookmark-snippet span:last-child { white-space: normal; overflow-wrap: anywhere; }
+.settings-rows { display: grid; margin-top: 22px; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 64px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; text-align: left; color: var(--text); }
+.settings-row > span { flex: 1; }
+.settings-row select { width: 140px; }
+.settings-command:hover { background: #f8fafc; }
+.switch { appearance: none; width: 38px; height: 22px; border-radius: 11px; background: #9da8b7; flex-shrink: 0; position: relative; cursor: pointer; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: white; }
+.switch:checked { background: var(--accent); }
+.switch:checked::after { transform: translateX(16px); }
+.quit-command { border: 0; background: none; color: var(--danger); padding: 12px 0; margin-top: 28px; text-align: left; }
+.tray-page .update-panel { border: 0; margin-top: 0; padding-top: 0; }
+.tray-status { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px); background: var(--text); color: white; border-radius: 6px; padding: 8px 12px; font-size: 12px; pointer-events: none; }
+.tray-status:empty { display: none; }
+.tray-page .companion-body { padding: 0; min-height: 458px; }
+.tray-page .companion-quests { padding-right: 14px; }
+.tray-page .companion-expedition { padding-left: 16px; }
+.tray-page .expedition-stage { grid-template-columns: minmax(0, 1fr) 120px; }
+.tray-page #expedition-hero { width: 120px; height: 120px; }
+.tray-page .expedition-countdown > strong { font-size: 38px; white-space: normal; }
+.tray-page .expedition-countdown > strong.is-complete { font-size: 20px; }
+.tray-page .expedition-reward { grid-template-columns: 56px minmax(0, 1fr); }
+.tray-page #reward-thumbnail { width: 56px; height: 56px; }
+.tray-page #reward-change { grid-column: 2; }
+.tray-page .companion-dialog { max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); overflow-y: auto; overflow-x: hidden; }
+.tray-page .reward-choice { min-width: 0; }
+.tray-page .reward-choice img { flex-shrink: 0; }
+
+@media (max-width: 720px) {
+  .tray-shell-body { grid-template-columns: 128px minmax(0, 1fr); }
+  .tray-rail button { padding: 12px; gap: 8px; }
+  .tray-page { padding: 18px 14px; }
+  .tray-page .companion-body { grid-template-columns: 1fr; }
+  .tray-page .companion-quests { border-right: 0; border-bottom: 1px solid var(--line); padding: 0 0 18px; }
+  .tray-page .companion-expedition { padding: 18px 0 0; }
+  .tray-page .all-quests { margin-top: 10px; }
+  .tray-page .companion-quest-list { max-height: 150px; }
+}
+@media (max-width: 600px) {
+  .tray-shell-body { grid-template-columns: 56px minmax(0, 1fr); }
+  .tray-rail button { justify-content: center; padding: 12px 8px; }
+  .tray-rail button > span { display: none; }
+  .tray-shell-header { height: 56px; min-height: 56px; padding: 8px 14px; }
+  .tray-page .split { grid-template-columns: 1fr; }
+  .tray-page .split .preview-pane { position: static; }
+  .tray-page .split .preview-frame { width: 120px; }
+  .tray-page .quest-table, .tray-page .quest-table tbody { display: block; }
+  .tray-page .quest-table thead { display: none; }
+  .tray-page .quest-table tr { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; border-bottom: 1px solid var(--line); padding: 12px 0; }
+  .tray-page .quest-table td { display: grid; grid-template-columns: minmax(0, 80px) minmax(0, 1fr); gap: 8px; border: 0; padding: 0; }
+  .tray-page .quest-table td::before { content: attr(data-label); color: var(--muted); font-size: 12px; }
+  .tray-page .quest-table td[colspan] { display: block; }
+}
+@media (max-width: 520px) {
+  .tray-page .inventory-layout { grid-template-columns: 1fr; gap: 18px; }
+  .tray-page .side-preview { grid-row: 1; position: static; display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 12px; border-left: 0; border-bottom: 1px solid var(--line); padding: 0 0 14px; }
+  .tray-page .side-preview .field-group { margin-top: 0; }
+  .tray-page .side-preview .action-row { margin-top: 8px; }
+  .tray-page .item-list { max-height: none; overflow: visible; }
+  .tray-page .inventory-header { flex-wrap: wrap; margin-bottom: 16px; }
+  .inventory-category { gap: 8px; margin-bottom: 16px; }
+  .inventory-category select { flex: 1; }
+  .settings-row select { width: 116px; }
+  .tray-page .info-line { grid-template-columns: 1fr; gap: 4px; }
+  .tray-page .update-title-row { flex-wrap: wrap; }
+}
+@media (max-width: 360px) {
+  .tray-page { padding: 14px 10px; }
+  .tray-page .settings-row { flex-wrap: wrap; }
+  .tray-page .settings-row select { width: 100%; }
+  .tray-page .side-preview { grid-template-columns: 72px minmax(0, 1fr); gap: 8px; }
+  .tray-page .expedition-stage { grid-template-columns: minmax(0, 1fr) 96px; }
+  .tray-page #expedition-hero { width: 96px; height: 96px; }
+}

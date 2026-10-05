@@ -3,6 +3,7 @@ const DEFAULT_EYE_TYPE = "default";
 const DEFAULT_CLOTHES_ID = "default_clothes";
 const DEFAULT_GENDER = "male";
 const { DEFAULT_LANGUAGE, normalizeLanguage } = require("./i18n");
+const { HAIR_IDS, HAIR_COLORS, WARDROBE_ITEMS } = require("./wardrobe");
 
 const GENDER_OPTIONS = [
   {
@@ -51,8 +52,11 @@ const EYE_TYPES = [
 ];
 
 const ITEM_CATEGORIES = [
+  { id: "hair", name: "Hair" },
   { id: "head", name: "Head" },
+  { id: "face", name: "Face" },
   { id: "clothes", name: "Clothes" },
+  { id: "back", name: "Back" },
   { id: "tool", name: "Tools" }
 ];
 
@@ -550,7 +554,7 @@ const ITEMS = [
     isDefault: false,
     owned: true,
     style: {
-      primary: "#202020"
+      primary: "#74848A"
     }
   },
   {
@@ -737,6 +741,27 @@ const ITEMS = [
   }
 ];
 
+ITEMS.push(
+  { id: "expedition_star_hat", name: "Star Hat", category: "head", slot: "head", owned: false,
+    style: { primary: "#2563A9", accent: "#F5D547" } },
+  { id: "expedition_cloak", name: "Companion Cloak", category: "clothes", slot: "clothes", owned: false,
+    renderStyle: "rogue_cloak", style: { shirt: "#357968", pants: "#26344D", accent: "#E8C365", trim: "#B1D8CC" } },
+  { id: "expedition_sword", name: "Dawn Sword", category: "tool", slot: "tool", owned: false,
+    style: { primary: "#EAD7AA", accent: "#397A91" } }
+);
+
+// Stable legacy IDs retain ownership; only their exclusive equipment slot changes.
+for (const item of ITEMS) {
+  if (HAIR_IDS.includes(item.id)) item.slot = item.category = "hair";
+  if (item.id === "round_glasses") item.slot = item.category = "face";
+  if (item.id === "small_bag") item.slot = item.category = "back";
+}
+ITEMS.push(...WARDROBE_ITEMS);
+for (const item of ITEMS.filter((entry) => entry.slot === "head")) {
+  item.hairFit = ["knight_helmet", "horned_helm", "ninja_hood"].includes(item.id) ? "cover"
+    : ["gold_crown", "silver_circlet"].includes(item.id) ? "band" : "cap";
+}
+
 function isValidHexColor(value) {
   return typeof value === "string" && /^#[0-9A-Fa-f]{6}$/.test(value);
 }
@@ -755,41 +780,39 @@ function getItemById(id) {
 
 function defaultEquipped() {
   return {
+    hair: null,
     head: null,
+    face: null,
     clothes: DEFAULT_CLOTHES_ID,
+    back: null,
     tool: null
   };
 }
 
 function defaultCharacter(version) {
   return {
+    schemaVersion: 2,
     hasCharacter: true,
     gender: DEFAULT_GENDER,
     bodyColor: DEFAULT_BODY_COLOR,
     eyeType: DEFAULT_EYE_TYPE,
+    hairColor: null,
     equipped: defaultEquipped(),
     version
   };
 }
 
 function normalizeEquipped(input) {
-  const equipped = { ...defaultEquipped(), ...(input || {}) };
-
-  const head = getItemById(equipped.head);
-  if (!head || head.category !== "head") {
-    equipped.head = null;
+  const source = input && typeof input === "object" ? { ...input } : {};
+  for (const oldSlot of ["head", "tool"]) {
+    const item = getItemById(source[oldSlot]);
+    if (item && item.slot !== oldSlot && !Object.hasOwn(source, item.slot)) source[item.slot] = item.id;
   }
-
-  const clothes = getItemById(equipped.clothes);
-  if (!clothes || clothes.category !== "clothes") {
-    equipped.clothes = DEFAULT_CLOTHES_ID;
+  const equipped = defaultEquipped();
+  for (const slot of Object.keys(equipped)) {
+    const item = getItemById(source[slot]);
+    if (item?.slot === slot) equipped[slot] = item.id;
   }
-
-  const tool = getItemById(equipped.tool);
-  if (!tool || tool.category !== "tool") {
-    equipped.tool = null;
-  }
-
   return equipped;
 }
 
@@ -798,10 +821,12 @@ function normalizeCharacter(input, version) {
   const source = input && typeof input === "object" ? input : {};
 
   return {
+    schemaVersion: 2,
     hasCharacter: source.hasCharacter === false ? false : true,
     gender: getGender(source.gender).id,
     bodyColor: isValidHexColor(source.bodyColor) ? source.bodyColor.toUpperCase() : fallback.bodyColor,
     eyeType: getEyeType(source.eyeType).id,
+    hairColor: typeof source.hairColor === "string" && HAIR_COLORS.includes(source.hairColor.toUpperCase()) ? source.hairColor.toUpperCase() : null,
     equipped: normalizeEquipped(source.equipped),
     version
   };
@@ -837,7 +862,7 @@ function equipItem(character, itemId) {
 }
 
 function unequipSlot(character, slot) {
-  if (!["head", "clothes", "tool"].includes(slot)) {
+  if (!ITEM_CATEGORIES.some((category) => category.id === slot)) {
     throw new Error("Unknown equipment slot");
   }
 
