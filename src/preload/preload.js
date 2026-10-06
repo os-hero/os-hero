@@ -11,7 +11,10 @@ const api = {
     return () => ipcRenderer.removeListener("tray:navigate", listener);
   },
   onCaptureTraySession: (callback) => {
-    const listener = () => callback();
+    const listener = (_event, requestId) => {
+      callback();
+      if (requestId) ipcRenderer.send("tray:session-captured", requestId);
+    };
     ipcRenderer.on("tray:capture-session", listener);
     return () => ipcRenderer.removeListener("tray:capture-session", listener);
   },
@@ -33,8 +36,12 @@ const api = {
   openQuestDetailWindow: (id) => ipcRenderer.invoke("quest:open-detail-window", id),
   setLaunchAtLogin: (enabled) => ipcRenderer.invoke("settings:set-launch-at-login", enabled),
   setLanguage: (language) => ipcRenderer.invoke("settings:set-language", language),
+  setAutoDownloadUpdates: (enabled) => ipcRenderer.invoke("settings:set-auto-download", enabled),
   checkForUpdates: () => ipcRenderer.invoke("update:check"),
-  downloadAndInstallUpdate: () => ipcRenderer.invoke("update:download-and-install"),
+  downloadUpdate: () => ipcRenderer.invoke("update:download"),
+  restartForUpdate: () => ipcRenderer.invoke("update:restart"),
+  acknowledgeUpdate: () => ipcRenderer.invoke("update:acknowledge"),
+  openUpdateLink: (kind) => ipcRenderer.invoke("update:open-link", kind),
   openTrayView: (view) => ipcRenderer.invoke("tray:open-view", view),
   showTrayMenu: () => ipcRenderer.invoke("tray:show-menu"),
   fitWindowToContent: (size) => ipcRenderer.invoke("window:fit-content", size),

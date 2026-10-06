@@ -11,6 +11,8 @@ const {
   shell,
   Tray,
   ipcMain,
+  dialog,
+  net,
   powerMonitor
 } = require("electron");
 
@@ -24,6 +26,7 @@ const { TRAY_ROUTES, TRAY_PANEL_SIZE, trayPanelBounds, normalizeTraySession, isO
 const { createOutsideClickMonitor } = require("./outsideClick");
 const { TrayAnimator } = require("./trayAnimator");
 const { UpdateManager } = require("./updater");
+const { updateMessages } = require("../shared/updateMessages");
 const {
   EYE_TYPES,
   GENDER_OPTIONS,
@@ -97,6 +100,7 @@ let heroPresentation = null;
 let updateManager = null;
 let firstRunPending = false;
 let isQuitting = false;
+let exitPreparation = null;
 let runtimeGoldTimer = null;
 let lastRuntimeGoldTickAt = 0;
 const reminderTimers = new Map();
@@ -157,6 +161,8 @@ function currentLanguage() {
 }
 
 function t(key, values) {
+  const message = updateMessages(currentLanguage())[key];
+  if (message) return message.replace(/\{(\w+)\}/g, (_match, name) => String(values?.[name] ?? ""));
   return translate(currentLanguage(), key, values);
 }
 
@@ -173,14 +179,16 @@ function localizeUpdateState(updateState) {
     available: "update.available",
     "not-available": "update.notAvailable",
     downloading: "update.downloading",
-    downloaded: "update.downloaded",
+    downloaded: "update.ready",
+    verifying: "update.verifying",
+    preparing: "update.preparing",
     installing: "update.installing",
     error: "update.error"
   };
 
   return {
     ...updateState,
-    message: t(messageKeyByStatus[updateState.status] || "update.idle", { version })
+    message: t(messageKeyByStatus[updateState.status] || "update.idle", { version: updateState.status === "downloaded" ? updateState.readyVersion : version })
   };
 }
 
@@ -198,7 +206,7 @@ function getPublicState() {
       version: currentVersion()
     },
     languageOptions: LANGUAGE_OPTIONS,
-    messages: { ...getMessages(language), ...companionMessages(language), ...wardrobeMessages(language) },
+    messages: { ...getMessages(language), ...companionMessages(language), ...wardrobeMessages(language), ...updateMessages(language) },
     hairColors: HAIR_COLORS,
     itemThumbnails,
     eyeTypes: EYE_TYPES,
@@ -439,7 +447,6 @@ function stopRuntimeGoldTimer() {
     clearInterval(runtimeGoldTimer);
     runtimeGoldTimer = null;
   }
-  settleRuntimeGold();
 }
 
 function persistCharacter(nextCharacter) {
@@ -688,8 +695,9 @@ function applyLaunchAtLogin(enabled) {
 
 function saveSettings(nextSettings, options = {}) {
   const shouldApplyLaunchAtLogin = options.applyLaunchAtLogin !== false;
-  settings = normalizeSettings(nextSettings, currentVersion());
-  store.saveSettings(settings);
+  const next = normalizeSettings(nextSettings, currentVersion());
+  store.saveSettings(next);
+  settings = next;
   if (shouldApplyLaunchAtLogin) {
     applyLaunchAtLogin(settings.launchAtLogin);
   }
@@ -738,8 +746,7 @@ function createMoreMenu() {
     {
       label: t("tray.quit"),
       click: () => {
-        isQuitting = true;
-        app.quit();
+        void requestQuit();
       }
     }
   ]);
@@ -977,7 +984,7 @@ function registerIpcHandlers() {
     if (event.sender !== trayPanelWindow?.webContents) return;
     try { traySession = normalizeTraySession(session); } catch { /* Reject oversized draft snapshots. */ }
   });
-  ipcMain.handle("app:quit", () => { isQuitting = true; app.quit(); });
+  ipcMain.handle("app:quit", () => requestQuit());
   ipcMain.handle("state:get", () => getPublicState());
 
   ipcMain.handle("character:render", (_event, draft, frameIndex, scale) => {
@@ -1116,20 +1123,27 @@ function registerIpcHandlers() {
     return getPublicState();
   });
 
+  ipcMain.handle("settings:set-auto-download", (_event, enabled) => {
+    if (typeof enabled !== "boolean") throw new Error("Invalid update preference");
+    saveSettings({ ...settings, autoDownloadUpdates: enabled }, { applyLaunchAtLogin: false });
+    if (enabled && updateManager?.state.status === "available") void updateManager.downloadUpdate();
+    return getPublicState();
+  });
+
   ipcMain.handle("update:check", async () => {
     if (!updateManager) {
       return null;
     }
 
-    return localizeUpdateState(await updateManager.checkForUpdates());
+    return localizeUpdateState(await updateManager.checkManually());
   });
 
-  ipcMain.handle("update:download-and-install", async () => {
-    if (!updateManager) {
-      return null;
-    }
-
-    return localizeUpdateState(await updateManager.downloadUpdate(true));
+  ipcMain.handle("update:download", async () => localizeUpdateState(await updateManager?.downloadUpdate()));
+  ipcMain.handle("update:restart", async () => localizeUpdateState(await updateManager?.installDownloadedUpdate()));
+  ipcMain.handle("update:acknowledge", () => localizeUpdateState(updateManager?.acknowledgeApplied()));
+  ipcMain.handle("update:open-link", (_event, kind) => {
+    if (!["notes", "installer"].includes(kind)) throw new Error("Invalid update link");
+    return shell.openExternal(kind === "notes" ? "https://github.com/os-hero/os-hero/releases/latest" : "https://os-hero.github.io/install/");
   });
 
   ipcMain.handle("tray:open-view", (_event, view) => {
@@ -1157,6 +1171,51 @@ function registerIpcHandlers() {
   });
 }
 
+async function captureExitSession() {
+  const panel = trayPanelWindow;
+  if (!panel || panel.isDestroyed()) return;
+  const id = crypto.randomUUID();
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { cleanup(); reject(new Error("Draft snapshot timed out")); }, 2500);
+    const onReply = (event, reply) => { if (reply === id && event.sender === panel.webContents) { cleanup(); resolve(); } };
+    const cleanup = () => { clearTimeout(timer); ipcMain.removeListener("tray:session-captured", onReply); };
+    ipcMain.on("tray:session-captured", onReply);
+    panel.webContents.send("tray:capture-session", id);
+  });
+}
+
+async function prepareExit(restart) {
+  if (exitPreparation) return exitPreparation;
+  exitPreparation = (async () => {
+    await captureExitSession();
+    if (traySession.hasUnsavedChanges) {
+      const options = { type: "warning", message: t("exit.unsaved"), detail: t("exit.detail"),
+        buttons: [t("exit.keepEditing"), t(restart ? "exit.discardRestart" : "exit.discardQuit")], defaultId: 0, cancelId: 0, noLink: true };
+      const result = await (trayPanelWindow && !trayPanelWindow.isDestroyed() ? dialog.showMessageBox(trayPanelWindow, options) : dialog.showMessageBox(options));
+      if (result.response !== 1) return false;
+    }
+    // Complete durable writes before Squirrel is allowed to close any windows.
+    if (expedition?.running) runExpeditionAction("pause");
+    else if (expedition) persistExpedition(expedition);
+    settleRuntimeGold();
+    if (wallet) store.saveWallet(wallet);
+    isQuitting = true;
+    return true;
+  })().finally(() => { exitPreparation = null; });
+  return exitPreparation;
+}
+
+async function requestQuit() {
+  try {
+    if (await prepareExit(false)) app.quit();
+    return isQuitting;
+  } catch {
+    isQuitting = false;
+    await dialog.showMessageBox({ type: "error", message: t("update.saveFailed"), buttons: [t("common.close")] });
+    return false;
+  }
+}
+
 function bootstrap() {
   Menu.setApplicationMenu(null);
 
@@ -1169,7 +1228,8 @@ function bootstrap() {
     ? defaultCharacter(currentVersion())
     : normalizeCharacter(storedCharacter, currentVersion());
 
-  settings = normalizeSettings(store.loadSettings(), currentVersion());
+  const storedSettings = store.loadSettings();
+  settings = normalizeSettings(storedSettings, currentVersion());
   store.saveSettings(settings);
   if (settings.launchAtLogin) {
     applyLaunchAtLogin(true);
@@ -1193,9 +1253,12 @@ function bootstrap() {
   updateManager = new UpdateManager({
     app,
     notifyState: notifyUpdateState,
-    beforeInstall: () => {
-      isQuitting = true;
-    }
+    beforeInstall: () => prepareExit(true),
+    onInstallError: () => { isQuitting = false; },
+    isOnline: () => net.isOnline(),
+    getAutoDownload: () => settings.autoDownloadUpdates,
+    readMetadata: () => store.loadUpdateMetadata() || { seenVersion: storedSettings?.version || currentVersion() },
+    writeMetadata: value => store.saveUpdateMetadata(value)
   });
 
   registerIpcHandlers();
@@ -1213,7 +1276,7 @@ function bootstrap() {
       try { runExpeditionAction("pause"); } catch { console.error("Could not save expedition on suspend."); }
     }
   });
-  powerMonitor.on("resume", () => { if (expedition) notifyExpedition(); });
+  powerMonitor.on("resume", () => { if (expedition) notifyExpedition(); void updateManager.checkIfDue(); });
 
   if (process.platform === "darwin" && app.dock) {
     app.dock.hide();
@@ -1225,7 +1288,7 @@ function bootstrap() {
 
   setTimeout(() => {
     updateManager.checkAtLaunch();
-  }, 1500);
+  }, 7500).unref();
 }
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
@@ -1241,12 +1304,9 @@ if (!gotSingleInstanceLock) {
 
   app.whenReady().then(bootstrap);
 
-  app.on("before-quit", () => {
-    isQuitting = true;
+  app.on("before-quit", (event) => {
+    if (!isQuitting && store) { event.preventDefault(); void requestQuit(); return; }
     updateManager?.stop();
-    if (expedition?.running) {
-      try { runExpeditionAction("pause"); } catch { console.error("Could not save expedition on exit."); }
-    }
     stopExpeditionTimer();
     destroyTrayPanelWindow();
     if (trayAnimator) {

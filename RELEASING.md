@@ -5,7 +5,11 @@
 - Public target: Apple Silicon macOS 12 or later. Windows/Intel distribution is not part of this channel.
 - Existing clients keep using `https://os-hero.github.io/updates/latest-mac.yml`.
 - New immutable installer/ZIP/blockmap/checksum assets are hosted in `os-hero/os-hero` GitHub Releases. The Pages compatibility feed points to those exact assets; never change its URL in already installed clients.
-- The app checks at startup and every six hours, downloads stable upgrades in the background, and installs on normal app quit or explicit restart. It does not force a restart during use. Prereleases/downgrades are disabled. Offline errors retry at the next check or through Settings.
+- The app checks 7.5 seconds after startup (skipping successful checks within 15 minutes), every six hours after a successful check, and when due after wake/network recovery. One unref'ed main-process minute tick handles due checks without a hidden renderer. Failed checks/downloads retry after 15 minutes, one hour, then six hours; manual checks bypass cooldown.
+- Automatic download defaults ON and can be disabled in Settings. Manual checks honor this preference, but neither a check nor a download restarts the app. Only an explicit Restart to Apply does so; normal Quit remains a quit. Popup dismissal never installs or quits.
+- On macOS, a ZIP download alone is not readiness: wait for native Squirrel signature validation/staging. Keep checking newer releases with an update ready. Failed newer downloads retain a previously verified native-staged update. Only stable upgrades are accepted; prereleases/downgrades remain disabled.
+- Before normal quit/update restart, capture all unsaved tray drafts and default to Continue Editing if confirmation is needed. Explicit discard never saves/equips a draft. Persist/pause expedition and flush gold before closing windows; a save failure aborts the restart/quit. No offline expedition credit or automatic resume is introduced.
+- `settings.json` adds backward-compatible `autoDownloadUpdates` (default true). `update-state.json` stores only check/retry timestamps, failure count and the acknowledged app version. Last successful check is not overwritten by a failed attempt. Applied-version notice appears once when the popup is next opened. Do not put user content/credentials in update metadata.
 - The previous public 1.2.0 ZIP was ad-hoc signed (no TeamIdentifier). Those installations may need one manual installation of the Developer ID-signed release before signature-validated automatic updates work. Do not weaken signature verification. Preserve `~/Library/Application Support/OS Hero`.
 
 ## One-Time Local Credentials
@@ -39,6 +43,14 @@ This validates credentials, tests, builds arm64 DMG/ZIP without automatic publis
 6. Install the verified app locally after an app/data backup. Record release URL, source/tag, signature/notary result, feed verification, test results and residual risks in project deployment docs.
 
 ## Failure and Recovery
+
+For updater lifecycle changes, also run the real Squirrel test on macOS after building. It re-signs disposable copies with separate bundle IDs/profiles and serves a loopback feed; it never installs into `/Applications` or uses real user records. `OS_HERO_QA_BASELINE` must be an older-version signed fixture carrying the policy under test (build it before bumping the version). Both regular Quit and explicit Restart must replace the bundle and preserve data; only Restart may relaunch. Ownership/cleanup/results go to `review-artifacts/2026-10-06/native-*`. Existing local signing tools are used; no global installation or login item is added.
+
+```sh
+OS_HERO_QA_BASELINE=/absolute/path/to/older/OS\ Hero.app \
+OS_HERO_QA_TARGET=/absolute/path/to/release/mac-arm64/OS\ Hero.app \
+node scripts/qa-native-update.js
+```
 
 - No signing identity, notarization failure, mismatched version/hash, dirty website checkout, wrong repository or unpublished source tag: stop before changing the stable feed.
 - A published GitHub Release with Pages still stale is recoverable by rerunning `npm run deploy:updates` with the same verified artifacts after correcting the Pages issue. Do not rebuild the same public version.

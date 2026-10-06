@@ -31,8 +31,28 @@ function persistTrayUi() {
   captureTrayUi();
   api.saveTraySession({
     ...trayUi, route: trayRoute, customizationDraft, customizationHairDirty, questRoute,
+    hasUnsavedChanges: hasUnsavedTrayChanges(),
     inventory: { tab: inventoryRoute.tab, item: inventoryRoute.item, scroll: [...inventoryRoute.scroll] }
   });
+}
+
+function hasUnsavedTrayChanges() {
+  if ((trayUi.quickQuest || "").trim()) return true;
+  if (customizationDraft) {
+    for (const field of ["gender", "bodyColor", "eyeType", "hairColor"])
+      if (customizationDraft[field] !== state.character[field]) return true;
+    if (customizationHairDirty && customizationDraft.equipped.hair !== state.character.equipped.hair) return true;
+  }
+  const rawColor = trayUi.formValues.customization?.["body-color"];
+  if (rawColor !== undefined && rawColor.toUpperCase() !== state.character.bodyColor.toUpperCase()) return true;
+  for (const [key, fields] of Object.entries(trayUi.formValues)) {
+    if (!key.startsWith("quests:")) continue;
+    const existing = state.quests.find(quest => quest.id === key.split(":")[1]);
+    const baseline = { "quest-title": existing?.title || "", "quest-body": existing?.body || "",
+      "quest-url": existing?.url || "", "quest-status": existing?.status || "todo", "quest-remind-at": toDateTimeLocal(existing?.remindAt) };
+    if (Object.entries(fields).some(([id, value]) => value !== baseline[id])) return true;
+  }
+  return false;
 }
 
 function scheduleTrayUiSave() {
@@ -77,7 +97,7 @@ function ensureTrayShell() {
     root.innerHTML = `<div class="tray-shell">
       <header class="tray-shell-header"><img class="companion-avatar" data-canonical-hero alt="${textHtml("custom.previewAlt")}" />
         <strong>OS Hero</strong><button class="icon-button" id="tray-settings" data-tray-route="settings"></button>
-      </header>
+      </header><div id="update-applied-notice" class="update-applied-notice" hidden role="status"></div>
       <div class="tray-shell-body"><nav class="tray-rail" aria-label="${textHtml("tray.panelNav")}"></nav>
         <section id="tray-page" class="tray-page" tabindex="-1"></section>
       </div><div id="tray-status" class="tray-status" role="status"></div>
@@ -91,6 +111,15 @@ function ensureTrayShell() {
   settings.title = text("tray.settings");
   settings.setAttribute("aria-label", text("tray.settings"));
   settings.classList.toggle("active", ["settings", "about", "updates"].includes(trayRoute));
+  paintUpdateIndicator();
+  const applied = document.getElementById("update-applied-notice");
+  if (state.update?.appliedVersion && applied.hidden) {
+    applied.hidden = false;
+    applied.innerHTML = `<span>${escapeHtml(text("update.applied", { version: state.update.appliedVersion }))}</span><button id="applied-notes">${textHtml("update.releaseNotes")}</button><button class="icon-button" id="applied-dismiss" aria-label="${textHtml("update.dismiss")}">${uiIcon("x")}</button>`;
+    document.getElementById("applied-notes").onclick = () => api.openUpdateLink("notes");
+    document.getElementById("applied-dismiss").onclick = () => { applied.hidden = true; };
+    requestAnimationFrame(() => api.acknowledgeUpdate());
+  }
   settings.onclick = () => navigateTray("settings");
   document.querySelector(".tray-rail").innerHTML = [
     ["customization", "house", "tray.customize"], ["inventory", "backpack", "tray.inventory"], ["companion", "clipboard-list", "tray.quests"]
@@ -129,8 +158,10 @@ function renderTraySettings() {
       <label class="settings-row" for="settings-language"><span>${textHtml("settings.language")}</span><select id="settings-language">
         ${state.languageOptions.map((language) => `<option value="${language.id}" ${language.id === state.settings.language ? "selected" : ""}>${escapeHtml(language.label)}</option>`).join("")}
       </select></label>
+      <label class="settings-row" for="auto-download-updates"><span>${textHtml("settings.autoDownload")}</span>
+        <input class="switch" role="switch" type="checkbox" id="auto-download-updates" ${state.settings.autoDownloadUpdates !== false ? "checked" : ""} /></label>
       <button class="settings-row settings-command" id="settings-about"><span>${textHtml("window.about")}</span>${uiIcon("chevron-right")}</button>
-      <button class="settings-row settings-command" id="settings-updates"><span>${textHtml("update.checkButton")}</span>${uiIcon("chevron-right")}</button>
+      <button class="settings-row settings-command" id="settings-updates"><span>${textHtml("common.update")}</span><span id="settings-update-status">${state.update?.readyVersion ? textHtml("update.readyLabel") : ""}</span>${uiIcon("chevron-right")}</button>
     </div><button class="quit-command" id="quit-app">${textHtml("tray.quit")}</button><p id="settings-error" class="error-text" role="alert"></p></div>`;
   document.getElementById("settings-about").onclick = () => navigateTray("about");
   document.getElementById("settings-updates").onclick = () => navigateTray("updates");
@@ -144,6 +175,20 @@ function renderTraySettings() {
   login.onchange = () => changeSetting(login, () => api.setLaunchAtLogin(login.checked));
   const language = document.getElementById("settings-language");
   language.onchange = () => changeSetting(language, () => api.setLanguage(language.value));
+  const automatic = document.getElementById("auto-download-updates");
+  automatic.onchange = () => changeSetting(automatic, () => api.setAutoDownloadUpdates(automatic.checked));
+}
+
+function paintUpdateIndicator() {
+  const ready = Boolean(state.update?.readyVersion);
+  const settings = document.getElementById("tray-settings");
+  if (settings) {
+    settings.classList.toggle("update-ready", ready);
+    settings.title = text("tray.settings") + (ready ? `: ${text("update.readyLabel")}` : "");
+    settings.setAttribute("aria-label", settings.title);
+  }
+  const label = document.getElementById("settings-update-status");
+  if (label) label.textContent = ready ? text("update.readyLabel") : "";
 }
 
 function renderTrayUpdates() {

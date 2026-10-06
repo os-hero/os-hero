@@ -133,3 +133,11 @@
   .tray-page .expedition-stage { grid-template-columns: minmax(0, 1fr) 96px; }
   .tray-page #expedition-hero { width: 96px; height: 96px; }
 }
+.tray-shell-header .update-ready { position: relative; }
+.tray-shell-header .update-ready::after { content: ""; position: absolute; right: 3px; top: 3px; width: 6px; height: 6px; border-radius: 50%; background: #2865ac; }
+#settings-update-status { font-size: 12px; color: #2865ac; min-width: 0; overflow-wrap: anywhere; }
+.update-panel .action-row { flex-wrap: wrap; }
+.update-panel button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.update-applied-notice:not([hidden]) { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); font-size: 12px; flex-wrap: wrap; }
+.update-applied-notice span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.update-applied-notice button { font-size: 12px; }

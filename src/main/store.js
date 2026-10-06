@@ -29,7 +29,11 @@ class AppStore {
     this.questsPath = path.join(userDataPath, "quests.json");
     this.walletPath = path.join(userDataPath, "wallet.json");
     this.expeditionPath = path.join(userDataPath, "expedition.json");
+    this.updatePath = path.join(userDataPath, "update-state.json");
   }
+
+  loadUpdateMetadata() { return readJson(this.updatePath); }
+  saveUpdateMetadata(value) { writeJson(this.updatePath, value); }
 
   loadCharacter() {
     return readJson(this.characterPath);

@@ -23,6 +23,7 @@ function normalizeTraySession(value) {
   for (const key of ["route", "customizationDraft", "customizationHairDirty", "inventory", "questRoute", "questDraft", "quickQuest", "dialog", "scroll", "formValues"])
     if (Object.hasOwn(value, key)) result[key] = JSON.parse(JSON.stringify(value[key]));
   result.route = TRAY_ROUTES.has(result.route) ? result.route : "companion";
+  result.hasUnsavedChanges = value.hasUnsavedChanges === true;
   return result;
 }
 

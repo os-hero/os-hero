@@ -835,6 +835,7 @@ function normalizeCharacter(input, version) {
 function defaultSettings(version) {
   return {
     launchAtLogin: false,
+    autoDownloadUpdates: true,
     language: DEFAULT_LANGUAGE,
     version
   };
@@ -845,6 +846,7 @@ function normalizeSettings(input, version) {
 
   return {
     launchAtLogin: Boolean(source.launchAtLogin),
+    autoDownloadUpdates: source.autoDownloadUpdates !== false,
     language: normalizeLanguage(source.language),
     version
   };

@@ -5,8 +5,8 @@ const { spawn } = require("child_process");
 const electron = require("electron");
 
 async function main() {
-  const only = ["--tray-shell", "--inventory-layout"].find((flag) => process.argv.includes(flag));
-  const scenarios = only ? [[only]] : [[], ["--wardrobe"], ["--inventory-layout"], ["--tray-shell"], ["--completion"], ["--restart"]];
+  const only = ["--tray-shell", "--inventory-layout", "--updates"].find((flag) => process.argv.includes(flag));
+  const scenarios = only ? [[only]] : [[], ["--wardrobe"], ["--inventory-layout"], ["--tray-shell"], ["--completion"], ["--restart"], ["--updates"]];
   for (const args of scenarios) {
     const profile = fs.mkdtempSync(path.join(os.tmpdir(), "oshero-qa-"));
     try {

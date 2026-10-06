@@ -1,0 +1,39 @@
+{
+  "version": "1.3.1",
+  "copy": {
+    "ko": {
+      "summary": "작업을 방해하지 않는 자동 업데이트와 안전한 재시작 정책을 적용했습니다.",
+      "notes": [
+        "앱 시작 후 백그라운드 확인, 6시간 주기 확인과 네트워크·절전 복귀 후 재시도를 지원합니다.",
+        "자동 다운로드를 환경설정에서 선택할 수 있으며, 수동 확인과 다운로드는 앱을 재시작하지 않습니다.",
+        "서명 검증이 끝난 업데이트만 적용 준비로 표시하며, 준비된 버전보다 새 버전도 계속 확인합니다.",
+        "재시작 전 미저장 편집을 확인하고 탐험 진행을 저장합니다. 저장 실패 시 앱을 종료하지 않습니다.",
+        "일반 종료와 업데이트 재시작을 구분하고, 업데이트 적용 후 변경사항을 한 번 안내합니다."
+      ]
+    },
+    "en": {
+      "summary": "Quiet automatic updates with explicit, safer restart controls.",
+      "notes": [
+        "Check in the background after launch, every six hours, and when due after network recovery or wake.",
+        "Choose automatic downloads in Settings. Manual checks and downloads never restart the app.",
+        "Only verified updates become ready, and checks continue for newer releases while an update is prepared.",
+        "Protect unsaved edits and save expedition progress before restarting. Failed saves keep the app open.",
+        "Distinguish normal quit from update restart, with a one-time notice after applying an update."
+      ]
+    },
+    "zh": {
+      "summary": "安静的自动更新与更安全的手动重启策略。",
+      "notes": [
+        "启动后在后台检查，每六小时检查，并在网络恢复或唤醒后按需重试。",
+        "可在设置中选择自动下载，手动检查和下载不会重启应用。",
+        "仅验证完成的更新会显示准备就绪，并继续检查更新的版本。",
+        "重启前保护未保存的编辑并保存探索进度，保存失败时不会退出。",
+        "区分正常退出和更新重启，更新完成后仅提示一次。"
+      ]
+    }
+  },
+  "installation": {
+    "en": "Apple Silicon macOS 12 or later. Signed 1.3.0 clients can use the existing stable update channel. Old public ad-hoc 1.2.0 installations may need one manual DMG installation; keep your application data.",
+    "ko": "Apple Silicon, macOS 12 이상용입니다. 정식 서명된 1.3.0은 기존 안정 업데이트 채널을 사용합니다. 과거 임시 서명 1.2.0은 DMG로 한 번 직접 설치해야 할 수 있으며, 앱 데이터는 삭제하지 마세요."
+  }
+}

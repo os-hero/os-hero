@@ -1080,10 +1080,10 @@ function renderUpdatePanelContent(update) {
     message: text("update.disabled")
   };
   const status = currentUpdate.status;
-  const busy = ["checking", "downloading", "installing"].includes(status);
+  const busy = ["checking", "downloading", "verifying", "preparing", "installing"].includes(status);
   const canCheck = currentUpdate.enabled && !busy;
-  const canInstall = ["available", "downloaded"].includes(status);
-  const installLabel = status === "downloaded" ? text("update.restartButton") : text("update.installButton");
+  const canDownload = !busy && currentUpdate.latestVersion && currentUpdate.latestVersion !== currentUpdate.currentVersion && currentUpdate.latestVersion !== currentUpdate.readyVersion;
+  const canInstall = !busy && Boolean(currentUpdate.readyVersion);
   const latestVersion = currentUpdate.latestVersion || "-";
   const progress =
     typeof currentUpdate.progressPercent === "number"
@@ -1120,16 +1120,14 @@ function renderUpdatePanelContent(update) {
     }
     ${
       currentUpdate.error
-        ? `<p class="error-text">${escapeHtml(currentUpdate.error)}</p>`
+        ? `<p class="error-text" role="alert">${escapeHtml(text(currentUpdate.error))}</p><button id="update-installer-link">${textHtml("update.installer")}</button>`
         : ""
     }
     <div class="action-row">
       <button id="check-update-button" ${canCheck ? "" : "disabled"}>${textHtml("update.checkButton")}</button>
-      ${
-        canInstall
-          ? `<button id="install-update-button" class="primary-button">${escapeHtml(installLabel)}</button>`
-          : ""
-      }
+      ${canDownload ? `<button id="download-update-button">${textHtml("update.downloadButton")}</button>` : ""}
+      ${canInstall ? `<button id="install-update-button" class="primary-button">${textHtml("update.restartButton")}</button>` : ""}
+      <button id="update-notes-link">${textHtml("update.releaseNotes")}</button>
     </div>
   `;
 }
@@ -1137,6 +1135,13 @@ function renderUpdatePanelContent(update) {
 function bindUpdatePanelEvents() {
   const checkButton = document.getElementById("check-update-button");
   const installButton = document.getElementById("install-update-button");
+  const downloadButton = document.getElementById("download-update-button");
+  document.getElementById("update-notes-link")?.addEventListener("click", () => api.openUpdateLink("notes"));
+  document.getElementById("update-installer-link")?.addEventListener("click", () => api.openUpdateLink("installer"));
+  if (downloadButton) downloadButton.onclick = async () => {
+    downloadButton.disabled = true;
+    refreshUpdatePanel(await api.downloadUpdate());
+  };
 
   if (checkButton) {
     checkButton.addEventListener("click", async () => {
@@ -1149,7 +1154,8 @@ function bindUpdatePanelEvents() {
   if (installButton) {
     installButton.addEventListener("click", async () => {
       installButton.disabled = true;
-      const update = await api.downloadAndInstallUpdate();
+      if (view === "tray") persistTrayUi();
+      const update = await api.restartForUpdate();
       refreshUpdatePanel(update);
     });
   }
@@ -1159,6 +1165,7 @@ function refreshUpdatePanel(update) {
   if (update) {
     state.update = update;
   }
+  paintUpdateIndicator();
 
   const updatePanel = document.getElementById("update-panel");
   if (!updatePanel) {

@@ -22,7 +22,7 @@ const trayOn = Tray.prototype.on;
 Tray.prototype.on = function (...args) { qaTray = this; return trayOn.apply(this, args); };
 const { defaultCharacter } = require("../src/shared/catalog");
 const { normalizeExpedition, dayKey } = require("../src/shared/expedition");
-const scenario = process.argv.includes("--tray-shell") ? "tray-shell" : process.argv.includes("--inventory-layout") ? "inventory-layout" : process.argv.includes("--wardrobe") ? "wardrobe" : process.argv.includes("--restart") ? "restart" : process.argv.includes("--completion") ? "completion" : "flow";
+const scenario = process.argv.includes("--updates") ? "updates" : process.argv.includes("--tray-shell") ? "tray-shell" : process.argv.includes("--inventory-layout") ? "inventory-layout" : process.argv.includes("--wardrobe") ? "wardrobe" : process.argv.includes("--restart") ? "restart" : process.argv.includes("--completion") ? "completion" : "flow";
 const profile = process.env.OS_HERO_QA_PROFILE || fs.mkdtempSync(path.join(os.tmpdir(), "oshero-qa-"));
 const output = path.resolve(__dirname, "../review-artifacts/2026-10-06");
 fs.mkdirSync(output, { recursive: true });
@@ -50,6 +50,7 @@ app.on("web-contents-created", (_event, contents) => {
   contents.on("console-message", (_event, level, message) => { if (level >= 3) errors.push(message); });
   contents.on("render-process-gone", (_event, details) => errors.push(`renderer gone: ${details.reason}`));
 });
+const qaUpdates = scenario === "updates" ? require("./qa-updates").prepare(process.env.OS_HERO_QA_APP || path.resolve(__dirname, "../src/main/main.js")) : null;
 require(process.env.OS_HERO_QA_APP || "../src/main/main");
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const check = (name, value) => { assert.ok(value, name); checks.push(name); };
@@ -75,7 +76,9 @@ app.whenReady().then(async () => {
     check("canonical icons match hero at same frame", await js("JSON.stringify(Array.from(document.querySelectorAll('[data-canonical-hero]')).map(img=>img.src).every(src=>src===document.querySelector('[data-canonical-hero]').src))") === "true");
     await capture(panel, `${scenario}-desktop.png`);
 
-    if (scenario === "tray-shell") {
+    if (scenario === "updates") {
+      await require("./qa-updates").run({ panel, app, profile, output, check, capture, wait, qaUpdates });
+    } else if (scenario === "tray-shell") {
       await require("./qa-tray-shell")({ panel, BrowserWindow, app, tray: qaTray, profile, output, check, capture, wait });
     } else if (scenario === "inventory-layout") {
       await require("./qa-inventory-layout")({ panel, BrowserWindow, output, check, capture, wait });

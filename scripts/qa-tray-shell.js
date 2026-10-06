@@ -4,6 +4,14 @@ const { spawnSync } = require("child_process");
 
 module.exports = async function ({ panel, BrowserWindow, app, tray, output, check, capture, wait }) {
   const js = (code) => panel.webContents.executeJavaScript(code, true);
+  const restored = async (code) => {
+    // Packaged renderer startup is asynchronous and can exceed 650ms under signing/build load.
+    for (let attempt = 0; attempt < 50; attempt++) {
+      try { if (await js(code)) return true; } catch {}
+      await wait(100);
+    }
+    return false;
+  };
   const go = async (route) => { await js(`navigateTray(${JSON.stringify(route)})`); await wait(100); };
   const originalId = panel.id;
   const helperRunning = () => spawnSync("pgrep", ["-P", String(process.pid), "-f", "oshero-outside-click"]).status === 0;
@@ -110,7 +118,7 @@ module.exports = async function ({ panel, BrowserWindow, app, tray, output, chec
   app.emit("second-instance");
   await wait(650);
   panel = BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('view=tray'));
-  check("route and unsaved Hero survive renderer teardown", await js("trayRoute==='customization' && document.getElementById('hair-style').value==='princess_hair'"));
+  check("route and unsaved Hero survive renderer teardown", await restored("trayRoute==='customization' && document.getElementById('hair-style')?.value==='princess_hair'"));
   check("draft restoration never equips without save", (await js("window.osHeroApi.getState()")).character.equipped.hair !== 'princess_hair');
   await capture(panel, "tray-restored-draft.png");
   await go("companion");
@@ -121,7 +129,7 @@ module.exports = async function ({ panel, BrowserWindow, app, tray, output, chec
   app.emit("second-instance");
   await wait(650);
   panel = BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('view=tray'));
-  check("quick quest dialog and unsaved title survive renderer teardown", await js("document.getElementById('companion-dialog').open && document.getElementById('quick-quest-title').value==='QA 임시 퀘스트'"));
+  check("quick quest dialog and unsaved title survive renderer teardown", await restored("document.getElementById('companion-dialog')?.open && document.getElementById('quick-quest-title')?.value==='QA 임시 퀘스트'"));
   await js("document.getElementById('dialog-close').click()");
   await wait(100);
   check("closing a child dialog keeps the shared popup open", panel.isVisible() && await js("!document.getElementById('companion-dialog').open"));

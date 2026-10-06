@@ -3,6 +3,16 @@ const path = require("path");
 
 const PLACEHOLDER_UPDATE_URL = "https://updates.example.com/os-hero/";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const STARTUP_COOLDOWN_MS = 15 * 60 * 1000;
+const RETRY_DELAYS_MS = [15 * 60 * 1000, 60 * 60 * 1000, UPDATE_CHECK_INTERVAL_MS];
+
+function newerVersion(a, b) {
+  if (!/^\d+\.\d+\.\d+$/.test(a || "")) return false;
+  if (!b) return true;
+  const left = a.split(".").map(Number), right = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) if (left[i] !== right[i]) return left[i] > right[i];
+  return false;
+}
 
 let electronAutoUpdater = null;
 
@@ -97,6 +107,8 @@ function createInitialState(enabled, feedUrl, currentVersion) {
     status: enabled ? "idle" : "disabled",
     currentVersion,
     latestVersion: null,
+    readyVersion: null,
+    appliedVersion: null,
     progressPercent: null,
     lastCheckedAt: null,
     error: null,
@@ -108,16 +120,37 @@ function createInitialState(enabled, feedUrl, currentVersion) {
 }
 
 class UpdateManager {
-  constructor({ app, notifyState, beforeInstall, autoUpdater, timers = globalThis }) {
+  constructor({ app, notifyState, beforeInstall, onInstallError, autoUpdater, timers = globalThis,
+    now = Date.now, isOnline = () => true, getAutoDownload = () => true,
+    readMetadata = () => ({}), writeMetadata = () => {} }) {
     this.app = app;
     this.notifyState = notifyState;
     this.beforeInstall = beforeInstall || (() => {});
+    this.onInstallError = onInstallError || (() => {});
+    this.now = now;
+    this.isOnline = isOnline;
+    this.getAutoDownload = getAutoDownload;
+    this.writeMetadata = writeMetadata;
+    const saved = readMetadata() || {};
+    this.metadata = {
+      lastSuccess: Number.isFinite(saved.lastSuccess) ? saved.lastSuccess : 0,
+      retryAt: Number.isFinite(saved.retryAt) ? saved.retryAt : 0,
+      failures: Math.min(3, Math.max(0, Number(saved.failures) || 0)),
+      seenVersion: typeof saved.seenVersion === "string" ? saved.seenVersion : app.getVersion()
+    };
     this.feedUrl = resolveUpdateFeedUrl(app);
     this.enabled = Boolean(this.feedUrl);
     this.state = createInitialState(this.enabled, this.feedUrl, app.getVersion());
+    this.state.lastCheckedAt = this.metadata.lastSuccess ? new Date(this.metadata.lastSuccess).toISOString() : null;
+    this.state.appliedVersion = newerVersion(app.getVersion(), this.metadata.seenVersion) ? app.getVersion() : null;
+    this.persistMetadata();
     this.checkPromise = null;
     this.downloadPromise = null;
-    this.installAfterDownload = false;
+    this.installPromise = null;
+    this.candidateVersion = null;
+    this.verification = null;
+    this.verificationTimer = null;
+    this.online = this.isOnline();
     this.startupCheckStarted = false;
     this.autoUpdater = null;
     this.providedAutoUpdater = autoUpdater;
@@ -158,8 +191,8 @@ class UpdateManager {
 
     this.autoUpdater.on("update-available", (info) => {
       this.patchState({
-        status: "available",
-        latestVersion: info.version || null,
+        status: newerVersion(info.version, this.state.readyVersion) ? "available" : "downloaded",
+        latestVersion: newerVersion(info.version, this.state.readyVersion) ? info.version : this.state.readyVersion,
         progressPercent: null,
         error: null,
         message: `새 버전 ${info.version || ""}이 있습니다.`
@@ -168,8 +201,8 @@ class UpdateManager {
 
     this.autoUpdater.on("update-not-available", () => {
       this.patchState({
-        status: "not-available",
-        latestVersion: null,
+        status: this.state.readyVersion ? "downloaded" : "not-available",
+        latestVersion: this.state.readyVersion || this.app.getVersion(),
         progressPercent: null,
         error: null,
         message: "현재 최신 버전을 사용 중입니다."
@@ -186,27 +219,47 @@ class UpdateManager {
     });
 
     this.autoUpdater.on("update-downloaded", (info) => {
-      this.patchState({
-        status: "downloaded",
-        latestVersion: info.version || this.state.latestVersion,
-        progressPercent: 100,
-        error: null,
-        message: "업데이트 다운로드가 완료되었습니다. 재시작하면 적용됩니다."
-      });
-
-      if (this.installAfterDownload) {
-        this.installDownloadedUpdate();
+      this.candidateVersion = info.version;
+      // MacUpdater emits this before Squirrel has validated/staged the signed app.
+      if (this.autoUpdater.nativeUpdater) {
+        this.patchState({ status: "verifying", progressPercent: 100 });
+        this.verificationTimer = this.timers.setTimeout(() => this.verification?.reject(new Error("verification timeout")), 180000);
       }
+      else this.markReady();
     });
+    this.autoUpdater.nativeUpdater?.on("update-downloaded", () => this.markReady());
 
     this.autoUpdater.on("error", (error) => {
-      this.patchState({
-        status: "error",
-        progressPercent: null,
-        error: error.message || String(error),
-        message: "업데이트 확인 또는 다운로드 중 오류가 발생했습니다."
-      });
+      this.verification?.reject(error);
+      if (this.state.status === "installing") this.onInstallError();
+      this.patchState({ status: "error", error: "update.failed", progressPercent: null });
     });
+  }
+
+  persistMetadata() {
+    try { this.writeMetadata(this.metadata); } catch { console.warn("Update scheduling metadata could not be saved."); }
+  }
+
+  acknowledgeApplied() {
+    this.metadata.seenVersion = this.app.getVersion();
+    this.persistMetadata();
+    return this.patchState({ appliedVersion: null });
+  }
+
+  markReady() {
+    if (!this.candidateVersion) return;
+    this.patchState({ status: "downloaded", readyVersion: this.candidateVersion, latestVersion: this.candidateVersion, progressPercent: 100, error: null });
+    this.metadata.failures = 0;
+    this.metadata.retryAt = 0;
+    this.persistMetadata();
+    this.verification?.resolve();
+  }
+
+  failed(kind) {
+    this.metadata.failures++;
+    this.metadata.retryAt = this.now() + RETRY_DELAYS_MS[Math.min(this.metadata.failures - 1, 2)];
+    this.persistMetadata();
+    return this.patchState({ status: "error", error: kind, progressPercent: null });
   }
 
   patchState(partial) {
@@ -230,21 +283,38 @@ class UpdateManager {
     }
 
     this.startupCheckStarted = true;
-    this.periodicTimer = this.timers.setInterval(() => { void this.checkAutomatically(); }, UPDATE_CHECK_INTERVAL_MS);
+    // One cheap main-process tick also detects network recovery with no renderer alive.
+    this.periodicTimer = this.timers.setInterval(() => { void this.checkIfDue(); }, 60000);
     this.periodicTimer.unref?.();
-    await this.checkAutomatically();
+    const elapsed = this.now() - this.metadata.lastSuccess;
+    if ((!this.metadata.lastSuccess || elapsed < 0 || elapsed >= STARTUP_COOLDOWN_MS) && this.now() >= this.metadata.retryAt) await this.checkAutomatically();
     return this.patchState({ startupCheckCompleted: true });
+  }
+
+  async checkIfDue() {
+    if (!this.app.isPackaged || !this.enabled || !this.startupCheckStarted) return this.state;
+    this.online = this.isOnline();
+    if (!this.online) return this.state;
+    const elapsed = this.now() - this.metadata.lastSuccess;
+    const due = this.metadata.retryAt ? this.now() >= this.metadata.retryAt : !this.metadata.lastSuccess || elapsed < 0 || elapsed >= UPDATE_CHECK_INTERVAL_MS;
+    return due ? this.checkAutomatically() : this.state;
   }
 
   async checkAutomatically() {
     if (this.automaticCheckPromise) return this.automaticCheckPromise;
-    if (this.downloadPromise || ["downloaded", "installing"].includes(this.state.status)) return this.state;
+    if (this.downloadPromise || this.installPromise || this.state.status === "installing") return this.state;
     this.automaticCheckPromise = (async () => {
       const state = await this.checkForUpdates();
-      if (state.status === "available") await this.downloadUpdate(false);
+      if (state.status === "available" && this.getAutoDownload()) await this.downloadUpdate();
       return this.state;
     })().finally(() => { this.automaticCheckPromise = null; });
     return this.automaticCheckPromise;
+  }
+
+  async checkManually() {
+    await this.checkForUpdates();
+    if (this.state.status === "available" && this.getAutoDownload()) await this.downloadUpdate();
+    return this.state;
   }
 
   stop() {
@@ -261,26 +331,21 @@ class UpdateManager {
       return this.checkPromise;
     }
 
-    if (this.downloadPromise || ["downloaded", "installing"].includes(this.state.status)) {
+    if (this.downloadPromise || this.installPromise || this.state.status === "installing") {
       return this.state;
     }
 
     this.checkPromise = this.autoUpdater
       .checkForUpdates()
       .then(() => {
-        this.patchState({ lastCheckedAt: new Date().toISOString() });
+        this.metadata.lastSuccess = this.now();
+        this.metadata.retryAt = 0;
+        if (["not-available", "downloaded"].includes(this.state.status)) this.metadata.failures = 0;
+        this.persistMetadata();
+        this.patchState({ lastCheckedAt: new Date(this.now()).toISOString(), error: null });
         return this.state;
       })
-      .catch((error) => {
-        this.patchState({
-          status: "error",
-          progressPercent: null,
-          lastCheckedAt: new Date().toISOString(),
-          error: error.message || String(error),
-          message: "업데이트 확인 중 오류가 발생했습니다."
-        });
-        return this.state;
-      })
+      .catch(() => this.failed("update.checkFailed"))
       .finally(() => {
         this.checkPromise = null;
       });
@@ -288,31 +353,21 @@ class UpdateManager {
     return this.checkPromise;
   }
 
-  async downloadUpdate(installAfterDownload) {
+  async downloadUpdate() {
     if (!this.enabled) {
       return this.state;
     }
 
-    if (this.state.status === "downloaded") {
-      if (installAfterDownload) {
-        return this.installDownloadedUpdate();
-      }
-
-      return this.state;
-    }
+    if (this.installPromise || this.downloadPromise) return this.downloadPromise || this.state;
+    if (this.state.status === "downloaded") return this.state;
 
     if (!["available", "downloading"].includes(this.state.status)) {
       await this.checkForUpdates();
     }
+    if (this.downloadPromise) return this.downloadPromise;
 
     if (this.state.status !== "available" && this.state.status !== "downloading") {
       return this.state;
-    }
-
-    this.installAfterDownload = this.installAfterDownload || Boolean(installAfterDownload);
-
-    if (this.downloadPromise) {
-      return this.downloadPromise;
     }
 
     this.patchState({
@@ -322,50 +377,45 @@ class UpdateManager {
       message: "업데이트를 내려받는 중입니다."
     });
 
-    this.downloadPromise = this.autoUpdater
-      .downloadUpdate()
-      .then(() => {
-        if (this.installAfterDownload && this.state.status === "downloaded") {
-          return this.installDownloadedUpdate();
-        }
-
-        return this.state;
-      })
-      .catch((error) => {
-        this.patchState({
-          status: "error",
-          progressPercent: null,
-          error: error.message || String(error),
-          message: "업데이트 다운로드 중 오류가 발생했습니다."
-        });
-        return this.state;
-      })
-      .finally(() => {
+    this.candidateVersion = this.state.latestVersion;
+    const verified = new Promise((resolve, reject) => { this.verification = { resolve, reject }; });
+    // Attach a handler immediately: native verification can fail before download resolves.
+    verified.catch(() => {});
+    this.downloadPromise = (async () => {
+      try {
+        await this.autoUpdater.downloadUpdate();
+        await verified;
+      } catch { this.failed("update.downloadFailed"); }
+      finally {
+        if (this.verificationTimer) this.timers.clearTimeout(this.verificationTimer);
+        this.verificationTimer = null;
+        this.verification = null;
+        this.candidateVersion = null;
         this.downloadPromise = null;
-        this.installAfterDownload = false;
-      });
+      }
+      return this.state;
+    })();
 
     return this.downloadPromise;
   }
 
-  installDownloadedUpdate() {
-    if (this.state.status !== "downloaded") {
+  async installDownloadedUpdate() {
+    if (this.installPromise) return this.installPromise;
+    if (!this.state.readyVersion || this.downloadPromise || this.checkPromise || this.state.status === "installing") return this.state;
+    this.installPromise = (async () => {
+      try {
+        this.patchState({ status: "preparing", error: null });
+        if (await this.beforeInstall() === false) return this.patchState({ status: "downloaded" });
+        this.patchState({ status: "installing", progressPercent: 100 });
+        this.autoUpdater.autoRunAppAfterInstall = true;
+        this.autoUpdater.quitAndInstall(false, true);
+      } catch {
+        this.onInstallError();
+        this.patchState({ status: "error", error: "update.saveFailed" });
+      }
       return this.state;
-    }
-
-    this.patchState({
-      status: "installing",
-      progressPercent: 100,
-      error: null,
-      message: "업데이트 적용을 위해 앱을 재시작합니다."
-    });
-
-    setImmediate(() => {
-      this.beforeInstall();
-      this.autoUpdater.quitAndInstall(false, true);
-    });
-
-    return this.state;
+    })().finally(() => { this.installPromise = null; });
+    return this.installPromise;
   }
 }
 
@@ -373,5 +423,8 @@ module.exports = {
   UpdateManager,
   PLACEHOLDER_UPDATE_URL,
   UPDATE_CHECK_INTERVAL_MS,
+  STARTUP_COOLDOWN_MS,
+  RETRY_DELAYS_MS,
+  newerVersion,
   resolveUpdateFeedUrl
 };
