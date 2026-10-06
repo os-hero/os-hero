@@ -1126,7 +1126,7 @@ function renderUpdatePanelContent(update) {
     <div class="action-row">
       <button id="check-update-button" ${canCheck ? "" : "disabled"}>${textHtml("update.checkButton")}</button>
       ${canDownload ? `<button id="download-update-button">${textHtml("update.downloadButton")}</button>` : ""}
-      ${canInstall ? `<button id="install-update-button" class="primary-button">${textHtml("update.restartButton")}</button>` : ""}
+      ${canInstall ? `<button id="install-update-button" class="primary-button">${textHtml("update.restartButton")} (${escapeHtml(currentUpdate.readyVersion)})</button>` : ""}
       <button id="update-notes-link">${textHtml("update.releaseNotes")}</button>
     </div>
   `;

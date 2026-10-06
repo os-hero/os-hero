@@ -49,7 +49,7 @@ async function run({ panel, app, profile, check, capture, wait, qaUpdates: qa })
   check("newer version replaces preparation without automatic restart", qa.downloads === 2 && qa.installs === 0 && await js("state.update.readyVersion==='99.0.2'"));
   qa.version = "99.0.3"; qa.failDownload = true;
   await js("window.osHeroApi.checkForUpdates()");
-  check("newer download failure retains old verified candidate", await js("state.update.readyVersion==='99.0.2' && !!document.getElementById('install-update-button') && !!document.getElementById('update-installer-link')"));
+  check("newer download failure retains old verified candidate", await js("state.update.readyVersion==='99.0.2' && document.getElementById('install-update-button')?.textContent.includes('99.0.2') && !!document.getElementById('update-installer-link')"));
   for (const language of ["ko","en","zh-CN"]) {
     await js(`window.osHeroApi.setLanguage(${JSON.stringify(language)})`);
     for (const width of [760, 390, 320]) {
