@@ -8,8 +8,17 @@ const {
 
 const VIRTUAL_SIZE = 24;
 const TRAY_PADDING = 1;
+const MAC_TRAY_SIZE = 22;
 const OUTLINE = "#1F2328";
 const SHADOW = "#000000";
+const { addOuterOutline } = require("./pixelOutline");
+const WALK_POSES = Object.freeze([
+  Object.freeze({ bob: 0, leftFoot: 0, rightFoot: -1, leftArm: 0, rightArm: -1 }),
+  Object.freeze({ bob: 1, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: -1 }),
+  Object.freeze({ bob: 0, leftFoot: -1, rightFoot: 0, leftArm: 0, rightArm: 1 }),
+  Object.freeze({ bob: 1, leftFoot: 0, rightFoot: 0, leftArm: -2, rightArm: -1 })
+]);
+const LEFT_HAND_TOOLS = new Set(["wooden_shield", "kite_shield", "magic_staff", "wizard_wand", "spellbook", "torch"]);
 
 function parseHex(hex) {
   const normalized = hex.replace("#", "");
@@ -42,11 +51,11 @@ function mixColor(hex, target, amount) {
 }
 
 function darken(hex, amount) {
-  return mixColor(hex, "#000000", amount);
+  return mixColor(hex, "#202B3C", amount);
 }
 
 function lighten(hex, amount) {
-  return mixColor(hex, "#FFFFFF", amount);
+  return mixColor(hex, "#FFF2D5", amount);
 }
 
 function hexToRgba(hex, alpha = 255) {
@@ -88,27 +97,29 @@ function getClothesStyle(character) {
   return clothes.style;
 }
 
-function drawBodyLayer(grid, character, bob) {
+function drawBodyLayer(grid, character, bob, pose) {
   const skin = character.bodyColor;
-  const skinShade = darken(skin, 0.16);
+  const skinShade = mixColor(skin, "#A85C4A", 0.18);
   const skinLight = lighten(skin, 0.12);
   const headY = 2 + bob;
 
   drawRect(grid, 8, headY, 8, 1, OUTLINE);
   drawRect(grid, 6, headY + 1, 12, 1, OUTLINE);
-  drawRect(grid, 5, headY + 2, 14, 7, OUTLINE);
-  drawRect(grid, 6, headY + 9, 12, 1, OUTLINE);
-  drawRect(grid, 8, headY + 10, 8, 1, OUTLINE);
+  drawRect(grid, 5, headY + 2, 14, 5, OUTLINE);
+  drawRect(grid, 6, headY + 7, 12, 2, OUTLINE);
+  drawRect(grid, 7, headY + 9, 10, 1, OUTLINE);
+  drawRect(grid, 9, headY + 10, 6, 1, OUTLINE);
 
   drawRect(grid, 8, headY + 1, 8, 1, skin);
-  drawRect(grid, 6, headY + 2, 12, 7, skin);
-  drawRect(grid, 7, headY + 9, 10, 1, skin);
-  drawRect(grid, 9, headY + 10, 6, 1, skin);
-  drawRect(grid, 6, headY + 7, 1, 2, skinShade);
-  drawRect(grid, 17, headY + 7, 1, 2, skinShade);
-  setPixel(grid, 8, headY + 4, skinLight);
-  setPixel(grid, 15, headY + 4, skinLight);
-  setPixel(grid, 12, headY + 6, skinShade);
+  drawRect(grid, 6, headY + 2, 12, 5, skin);
+  drawRect(grid, 7, headY + 7, 10, 2, skin);
+  drawRect(grid, 8, headY + 9, 8, 1, skin);
+  drawRect(grid, 10, headY + 10, 4, 1, skin);
+  drawRect(grid, 16, headY + 3, 1, 4, skinShade);
+  drawRect(grid, 7, headY + 7, 1, 2, skinShade);
+  drawRect(grid, 16, headY + 7, 1, 2, skinShade);
+  drawRect(grid, 7, headY + 3, 2, 1, skinLight);
+  setPixel(grid, 12, headY + 7, skinShade);
   drawPixelPattern(
     grid,
     [
@@ -124,56 +135,61 @@ function drawBodyLayer(grid, character, bob) {
   drawRect(grid, 10, neckY + 1, 1, 1, skinShade);
   drawRect(grid, 13, neckY + 1, 1, 1, skinShade);
 
-  const armY = 12 + bob;
-  drawRect(grid, 4, armY + 1, 3, 6, OUTLINE);
-  drawRect(grid, 17, armY + 1, 3, 6, OUTLINE);
-  drawRect(grid, 4, armY + 4, 3, 2, skin);
-  drawRect(grid, 17, armY + 4, 3, 2, skin);
-  setPixel(grid, 5, armY + 6, skinShade);
-  setPixel(grid, 18, armY + 6, skinShade);
+  for (const [x, offset] of [[4, pose.leftArm], [17, pose.rightArm]]) {
+    const armY = 12 + bob + offset;
+    drawRect(grid, x, armY + 1, 3, 6, OUTLINE);
+    drawRect(grid, x + 1, armY + 4, 2, 2, skin);
+    setPixel(grid, x + 1, armY + 6, skinShade);
+  }
 }
 
-function drawSleeves(grid, style, torsoY, expanded) {
-  const leftX = expanded ? 4 : 5;
-  const rightX = expanded ? 17 : 16;
-
-  drawRect(grid, leftX, torsoY + 1, 3, 4, OUTLINE);
-  drawRect(grid, rightX, torsoY + 1, 3, 4, OUTLINE);
-  drawRect(grid, leftX + 1, torsoY + 2, 2, 2, style.shirt);
-  drawRect(grid, rightX, torsoY + 2, 2, 2, style.shirt);
+function drawSleeves(grid, style, torsoY, pose) {
+  for (const [x, offset] of [[4, pose.leftArm], [17, pose.rightArm]]) {
+    drawRect(grid, x, torsoY + 1 + offset, 3, 4, OUTLINE);
+    drawRect(grid, x + 1, torsoY + 2 + offset, 2, 2, style.shirt);
+    setPixel(grid, x + 1, torsoY + 2 + offset, lighten(style.shirt, 0.22));
+    setPixel(grid, x + 2, torsoY + 3 + offset, darken(style.shirt, 0.25));
+  }
 }
 
-function drawLegs(grid, bob, pantsColor) {
+function drawFeet(grid, pantsColor, pose) {
+  for (const [x, lift] of [[6, pose.leftFoot], [13, pose.rightFoot]]) {
+    drawRect(grid, x + 1, 21 + lift, 4, 1, darken(pantsColor, 0.35));
+    drawRect(grid, x, 22 + lift, 5, 1, OUTLINE);
+    setPixel(grid, x + 1, 21 + lift, lighten(pantsColor, 0.2));
+  }
+}
+
+function drawLegs(grid, bob, pantsColor, pose) {
   const legTop = 18 + bob;
-  const legHeight = bob ? 3 : 4;
-
   drawRect(grid, 7, legTop - 1, 10, 1, OUTLINE);
-  drawRect(grid, 7, legTop, 5, legHeight, OUTLINE);
-  drawRect(grid, 12, legTop, 5, legHeight, OUTLINE);
-  drawRect(grid, 8, legTop, 3, legHeight, pantsColor);
-  drawRect(grid, 13, legTop, 3, legHeight, pantsColor);
-  drawRect(grid, 9, legTop, 1, legHeight, lighten(pantsColor, 0.1));
-  drawRect(grid, 14, legTop, 1, legHeight, lighten(pantsColor, 0.1));
-  drawRect(grid, 6, 22, 6, 1, OUTLINE);
-  drawRect(grid, 12, 22, 6, 1, OUTLINE);
+  for (const [x, lift] of [[7, pose.leftFoot], [13, pose.rightFoot]]) {
+    const height = 22 + lift - legTop;
+    drawRect(grid, x, legTop, 4, height, OUTLINE);
+    drawRect(grid, x + 1, legTop, 2, height, pantsColor);
+    drawRect(grid, x + 1, legTop, 1, height, lighten(pantsColor, 0.18));
+  }
+  drawFeet(grid, pantsColor, pose);
 }
 
 function drawClothesLayer(grid, character, bob, frameIndex) {
   const style = getClothesStyle(character);
   const clothesId = getItemById(character.equipped.clothes)?.renderStyle || character.equipped.clothes;
   const torsoY = 12 + bob;
-  const expanded = frameIndex % 4 === 1;
+  const pose = WALK_POSES[frameIndex];
   const shirtShade = darken(style.shirt, 0.16);
   const pantsShade = darken(style.pants, 0.18);
   const trim = style.trim || style.accent;
 
-  drawSleeves(grid, style, torsoY, expanded);
+  drawSleeves(grid, style, torsoY, pose);
 
   drawRect(grid, 6, torsoY, 12, 1, OUTLINE);
-  drawRect(grid, 5, torsoY + 1, 14, 6, OUTLINE);
+  drawRect(grid, 6, torsoY + 1, 12, 6, OUTLINE);
   drawRect(grid, 6, torsoY + 6, 12, 1, OUTLINE);
   drawRect(grid, 7, torsoY + 1, 10, 5, style.shirt);
   drawRect(grid, 7, torsoY + 5, 10, 1, shirtShade);
+  drawRect(grid, 7, torsoY + 1, 1, 4, lighten(style.shirt, 0.2));
+  drawRect(grid, 16, torsoY + 2, 1, 4, darken(style.shirt, 0.28));
 
   if (["travel_jacket", "rune_coat", "village_armor"].includes(clothesId)) {
     if (clothesId === "travel_jacket") {
@@ -191,7 +207,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
       drawRect(grid, 11, torsoY + 1, 2, 1, style.trim);
       drawRect(grid, 10, torsoY + 5, 4, 1, style.trim);
     }
-    drawLegs(grid, bob, style.pants);
+    drawLegs(grid, bob, style.pants, pose);
     if (clothesId === "rune_coat") {
       drawRect(grid, 7, torsoY + 6, 3, 3, style.shirt);
       drawRect(grid, 14, torsoY + 6, 3, 3, style.shirt);
@@ -208,7 +224,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
     drawRect(grid, 10, torsoY + 4, 4, 1, lighten(style.pants, 0.1));
     setPixel(grid, 9, torsoY + 2, style.accent);
     setPixel(grid, 14, torsoY + 2, style.accent);
-    drawLegs(grid, bob, style.pants);
+    drawLegs(grid, bob, style.pants, pose);
     return;
   }
 
@@ -227,7 +243,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
     );
     setPixel(grid, 11, torsoY + 1, style.accent);
     setPixel(grid, 12, torsoY + 1, style.accent);
-    drawLegs(grid, bob, style.pants);
+    drawLegs(grid, bob, style.pants, pose);
     return;
   }
 
@@ -248,7 +264,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
       ],
       style.accent
     );
-    drawRect(grid, 6, 22, 12, 1, OUTLINE);
+    drawFeet(grid, style.pants, pose);
     return;
   }
 
@@ -277,6 +293,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
       ],
       trim
     );
+    drawFeet(grid, style.pants, pose);
     return;
   }
 
@@ -295,7 +312,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
       ],
       OUTLINE
     );
-    drawLegs(grid, bob, style.pants);
+    drawLegs(grid, bob, style.pants, pose);
     return;
   }
 
@@ -314,7 +331,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
     if (clothesId === "ninja_suit") {
       drawRect(grid, 9, torsoY + 2, 6, 1, trim);
     }
-    drawLegs(grid, bob, style.pants);
+    drawLegs(grid, bob, style.pants, pose);
     return;
   }
 
@@ -335,7 +352,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
     );
     drawRect(grid, 19, torsoY + 4, 3, 5, OUTLINE);
     drawRect(grid, 20, torsoY + 5, 1, 3, style.shirt);
-    drawLegs(grid, bob, style.pants);
+    drawLegs(grid, bob, style.pants, pose);
     return;
   }
 
@@ -345,7 +362,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
     drawRect(grid, 7, torsoY + 5, 10, 1, trim);
     setPixel(grid, 16, torsoY + 2, trim);
     setPixel(grid, 7, torsoY + 2, trim);
-    drawLegs(grid, bob, style.pants);
+    drawLegs(grid, bob, style.pants, pose);
     return;
   }
 
@@ -365,7 +382,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
       ],
       style.accent
     );
-    drawLegs(grid, bob, style.pants);
+    drawLegs(grid, bob, style.pants, pose);
     return;
   }
 
@@ -382,7 +399,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
       ],
       trim
     );
-    drawLegs(grid, bob, style.pants);
+    drawLegs(grid, bob, style.pants, pose);
     return;
   }
 
@@ -399,17 +416,121 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
   drawRect(grid, 7, torsoY + 4, 10, 1, style.accent);
   setPixel(grid, 8, torsoY + 2, shirtShade);
   setPixel(grid, 15, torsoY + 2, lighten(style.shirt, 0.12));
-  drawLegs(grid, bob, pantsShade);
+  drawLegs(grid, bob, pantsShade, pose);
+}
+
+function drawHairstyle(grid, character, bob, item) {
+  const primary = character.hairColor || item.style.primary;
+  const shade = darken(primary, 0.32);
+  const light = lighten(primary, 0.28);
+  const accent = character.hairColor ? lighten(primary, 0.48) : item.style.accent;
+  const y = 2 + bob;
+  const rect = (x, dy, w, h, color) => drawRect(grid, x, y + dy, w, h, color);
+  const points = (pixels, color) => drawPixelPattern(grid, pixels.map(([x, dy]) => [x, y + dy]), color);
+  const lock = (x, dy, w, h) => {
+    rect(x, dy, w, h, OUTLINE);
+    rect(x + 1, dy + 1, w - 2, h - 2, primary);
+    rect(x + 1, dy + 2, 1, Math.max(1, h - 4), light);
+    rect(x + w - 2, dy + 1, 1, h - 2, shade);
+  };
+  if (item.id === "mohawk_hair") {
+    lock(10, -2, 4, 6);
+    rect(12, -1, 1, 4, light);
+    rect(5, 2, 2, 4, shade);
+    rect(17, 2, 2, 4, shade);
+    return;
+  }
+  rect(8, -1, 8, 1, OUTLINE);
+  rect(6, 0, 12, 1, OUTLINE);
+  rect(5, 1, 14, 3, OUTLINE);
+  rect(7, 0, 10, 1, primary);
+  rect(6, 1, 12, 2, primary);
+  rect(8, 0, 4, 1, light);
+  rect(7, 1, 3, 1, light);
+  rect(15, 2, 3, 1, shade);
+  switch (item.id) {
+    case "long_hair":
+      lock(4, 2, 5, 12); lock(15, 2, 5, 12);
+      rect(6, 11, 12, 3, shade);
+      points([[7, 3], [8, 4], [15, 3], [16, 4]], primary);
+      break;
+    case "bob_hair":
+      lock(5, 2, 4, 8); lock(15, 2, 4, 8);
+      rect(6, 9, 3, 1, OUTLINE); rect(15, 9, 3, 1, OUTLINE);
+      rect(8, 3, 8, 1, primary);
+      points([[9, 4], [11, 4], [14, 4]], shade);
+      break;
+    case "twin_tails":
+      lock(5, 2, 4, 5); lock(15, 2, 4, 5);
+      lock(2, 5, 5, 7); lock(17, 5, 5, 7);
+      rect(3, 12, 3, 1, OUTLINE); rect(18, 12, 3, 1, OUTLINE);
+      rect(3, 5, 3, 1, accent); rect(18, 5, 3, 1, accent);
+      points([[8, 3], [9, 4], [14, 4], [15, 3]], primary);
+      break;
+    case "spiky_hair":
+      points([[7, -2], [10, -2], [13, -2], [16, -2], [6, -1], [17, -1]], OUTLINE);
+      points([[7, -1], [10, -1], [13, -1], [16, -1]], primary);
+      lock(5, 2, 4, 5); lock(15, 2, 4, 4);
+      points([[8, 3], [10, 4], [13, 3], [16, 4]], primary);
+      points([[8, 1], [11, 0], [14, 1]], light);
+      break;
+    case "side_part_hair":
+      rect(9, -2, 6, 1, OUTLINE); rect(9, -1, 5, 1, primary);
+      lock(5, 2, 4, 6); lock(16, 2, 3, 5);
+      rect(7, 2, 6, 1, primary); rect(7, 3, 4, 1, primary);
+      points([[7, 2], [8, 3], [9, 3]], light);
+      points([[10, 4], [11, 3], [12, 2]], shade);
+      break;
+    case "curly_hair":
+      points([[6, -1], [9, -2], [12, -2], [16, -1], [4, 2], [19, 2]], OUTLINE);
+      points([[9, -1], [12, -1], [6, 0], [16, 0]], primary);
+      lock(4, 2, 5, 6); lock(15, 2, 5, 6);
+      points([[6, 3], [7, 5], [16, 3], [17, 5], [10, 1], [13, 2]], light);
+      points([[8, 4], [10, 3], [13, 3], [15, 4], [5, 7], [18, 7]], primary);
+      break;
+    case "ponytail_hair":
+      lock(5, 2, 4, 5); lock(16, 2, 3, 5);
+      lock(19, 3, 4, 7); rect(19, 10, 3, 1, OUTLINE);
+      rect(20, 9, 2, 1, primary); rect(18, 4, 3, 1, accent);
+      points([[8, 3], [9, 4], [10, 3]], primary);
+      break;
+    case "princess_hair":
+      lock(4, 2, 5, 12); lock(15, 2, 5, 12);
+      lock(3, 7, 5, 4); lock(16, 7, 5, 4);
+      rect(5, 12, 3, 2, OUTLINE); rect(16, 12, 3, 2, OUTLINE);
+      points([[6, 12], [17, 12], [5, 8], [18, 8]], light);
+      points([[7, 3], [8, 4], [15, 3], [16, 4]], primary);
+      break;
+    case "short_bangs":
+      lock(5, 2, 4, 6); lock(15, 2, 4, 6);
+      rect(7, 3, 10, 1, primary);
+      points([[8, 4], [10, 4], [12, 4], [14, 4], [16, 4]], shade);
+      break;
+    case "braided_hair":
+      lock(5, 2, 4, 5); lock(15, 2, 4, 5);
+      lock(3, 6, 4, 10); lock(17, 6, 4, 10);
+      for (const dy of [7, 9, 11, 13]) {
+        points([[4, dy], [19, dy], [5, dy + 1], [18, dy + 1]], light);
+      }
+      rect(4, 15, 2, 1, accent); rect(18, 15, 2, 1, accent);
+      points([[8, 3], [9, 4], [14, 4], [15, 3]], primary);
+      break;
+    default:
+      lock(5, 2, 4, 5); lock(16, 2, 3, 4);
+      points([[8, 3], [10, 3], [11, 4], [15, 3]], primary);
+      break;
+  }
 }
 
 function drawHeadLayer(grid, character, bob, item = getItemById(character.equipped.head)) {
   if (!item) {
     return;
   }
+  if (item.slot === "hair") return drawHairstyle(grid, character, bob, item);
 
   const headY = 2 + bob;
-  const primary = item.slot === "hair" && character.hairColor ? character.hairColor : item.style.primary;
-  const accent = item.slot === "hair" && character.hairColor ? lighten(primary, 0.15) : item.style.accent || darken(primary, 0.2);
+  const primary = item.style.primary;
+  const accent = item.style.accent || darken(primary, 0.2);
   const shade = darken(primary, 0.22);
   const light = lighten(primary, 0.16);
 
@@ -461,27 +582,6 @@ function drawHeadLayer(grid, character, bob, item = getItemById(character.equipp
     setPixel(grid, 12, 3 + bob, accent);
   }
 
-  if (item.id === "basic_hair") {
-    drawRect(grid, 8, headY - 1, 9, 1, OUTLINE);
-    drawRect(grid, 6, headY, 12, 2, OUTLINE);
-    drawRect(grid, 5, headY + 2, 4, 3, OUTLINE);
-    drawRect(grid, 15, headY + 2, 3, 2, OUTLINE);
-    drawRect(grid, 8, headY - 1, 8, 1, primary);
-    drawRect(grid, 6, headY, 11, 2, primary);
-    drawRect(grid, 5, headY + 2, 3, 2, primary);
-    drawRect(grid, 16, headY + 2, 2, 1, shade);
-    drawPixelPattern(
-      grid,
-      [
-        [8, headY + 2],
-        [9, headY + 2],
-        [10, headY + 3],
-        [15, headY + 1]
-      ],
-      accent
-    );
-  }
-
   if (item.id === "red_cap") {
     drawRect(grid, 8, headY - 2, 8, 1, OUTLINE);
     drawRect(grid, 6, headY - 1, 12, 2, OUTLINE);
@@ -495,276 +595,6 @@ function drawHeadLayer(grid, character, bob, item = getItemById(character.equipp
       [
         [11, headY],
         [12, headY]
-      ],
-      accent
-    );
-  }
-
-  if (item.id === "long_hair") {
-    drawRect(grid, 6, headY - 1, 12, 2, OUTLINE);
-    drawRect(grid, 4, headY + 1, 5, 11, OUTLINE);
-    drawRect(grid, 15, headY + 1, 5, 11, OUTLINE);
-    drawRect(grid, 6, headY + 9, 12, 4, OUTLINE);
-    drawRect(grid, 7, headY - 1, 10, 2, primary);
-    drawRect(grid, 5, headY + 1, 4, 10, primary);
-    drawRect(grid, 15, headY + 1, 4, 10, primary);
-    drawRect(grid, 7, headY + 9, 10, 3, primary);
-    drawRect(grid, 5, headY + 7, 1, 4, shade);
-    drawRect(grid, 18, headY + 7, 1, 4, shade);
-    drawPixelPattern(
-      grid,
-      [
-        [8, headY + 1],
-        [9, headY + 2],
-        [14, headY + 1],
-        [15, headY + 2],
-        [7, headY + 10],
-        [16, headY + 10]
-      ],
-      accent
-    );
-  }
-
-  if (item.id === "bob_hair") {
-    drawRect(grid, 6, headY - 1, 12, 2, OUTLINE);
-    drawRect(grid, 5, headY + 1, 4, 8, OUTLINE);
-    drawRect(grid, 15, headY + 1, 4, 8, OUTLINE);
-    drawRect(grid, 7, headY + 8, 10, 2, OUTLINE);
-    drawRect(grid, 7, headY - 1, 10, 2, primary);
-    drawRect(grid, 6, headY + 1, 3, 7, primary);
-    drawRect(grid, 15, headY + 1, 3, 7, primary);
-    drawRect(grid, 8, headY + 8, 8, 1, primary);
-    drawRect(grid, 6, headY + 5, 1, 3, shade);
-    drawRect(grid, 17, headY + 5, 1, 3, shade);
-    drawPixelPattern(
-      grid,
-      [
-        [8, headY + 1],
-        [9, headY + 1],
-        [10, headY + 2],
-        [13, headY + 1],
-        [14, headY + 2]
-      ],
-      accent
-    );
-  }
-
-  if (item.id === "twin_tails") {
-    drawRect(grid, 6, headY - 1, 12, 2, OUTLINE);
-    drawRect(grid, 5, headY + 1, 4, 5, OUTLINE);
-    drawRect(grid, 15, headY + 1, 4, 5, OUTLINE);
-    drawRect(grid, 2, headY + 5, 5, 6, OUTLINE);
-    drawRect(grid, 17, headY + 5, 5, 6, OUTLINE);
-    drawRect(grid, 7, headY - 1, 10, 2, primary);
-    drawRect(grid, 6, headY + 1, 3, 4, primary);
-    drawRect(grid, 15, headY + 1, 3, 4, primary);
-    drawRect(grid, 3, headY + 6, 3, 4, primary);
-    drawRect(grid, 18, headY + 6, 3, 4, primary);
-    drawRect(grid, 3, headY + 9, 3, 1, shade);
-    drawRect(grid, 18, headY + 9, 3, 1, shade);
-    drawPixelPattern(
-      grid,
-      [
-        [5, headY + 5],
-        [18, headY + 5],
-        [4, headY + 8],
-        [19, headY + 8]
-      ],
-      accent
-    );
-  }
-
-  if (item.id === "spiky_hair") {
-    drawPixelPattern(
-      grid,
-      [
-        [7, headY - 2],
-        [10, headY - 2],
-        [13, headY - 2],
-        [16, headY - 2],
-        [6, headY - 1],
-        [8, headY - 1],
-        [11, headY - 1],
-        [14, headY - 1],
-        [17, headY - 1]
-      ],
-      OUTLINE
-    );
-    drawRect(grid, 6, headY, 12, 2, OUTLINE);
-    drawRect(grid, 5, headY + 2, 4, 3, OUTLINE);
-    drawRect(grid, 15, headY + 2, 4, 2, OUTLINE);
-    drawPixelPattern(
-      grid,
-      [
-        [7, headY - 1],
-        [10, headY - 1],
-        [13, headY - 1],
-        [16, headY - 1],
-        [6, headY],
-        [8, headY],
-        [11, headY],
-        [14, headY],
-        [17, headY]
-      ],
-      primary
-    );
-    drawRect(grid, 6, headY + 1, 11, 1, primary);
-    drawRect(grid, 5, headY + 2, 3, 2, shade);
-    drawRect(grid, 16, headY + 2, 2, 1, accent);
-  }
-
-  if (item.id === "side_part_hair") {
-    drawRect(grid, 7, headY - 1, 10, 1, OUTLINE);
-    drawRect(grid, 5, headY, 14, 3, OUTLINE);
-    drawRect(grid, 5, headY + 3, 3, 4, OUTLINE);
-    drawRect(grid, 16, headY + 2, 3, 4, OUTLINE);
-    drawRect(grid, 7, headY - 1, 9, 1, light);
-    drawRect(grid, 6, headY, 12, 2, primary);
-    drawRect(grid, 6, headY + 2, 5, 1, accent);
-    drawRect(grid, 5, headY + 3, 2, 3, shade);
-    drawRect(grid, 16, headY + 2, 2, 3, shade);
-    drawPixelPattern(
-      grid,
-      [
-        [9, headY + 1],
-        [10, headY + 2],
-        [11, headY + 2]
-      ],
-      light
-    );
-  }
-
-  if (item.id === "mohawk_hair") {
-    drawRect(grid, 10, headY - 2, 4, 4, OUTLINE);
-    drawRect(grid, 6, headY + 1, 12, 2, OUTLINE);
-    drawRect(grid, 5, headY + 3, 3, 3, OUTLINE);
-    drawRect(grid, 16, headY + 3, 3, 3, OUTLINE);
-    drawRect(grid, 11, headY - 2, 2, 4, primary);
-    drawRect(grid, 12, headY - 2, 1, 4, light);
-    drawRect(grid, 6, headY + 1, 12, 1, shade);
-    drawRect(grid, 5, headY + 3, 2, 2, shade);
-    drawRect(grid, 17, headY + 3, 1, 2, shade);
-    setPixel(grid, 12, headY, accent);
-  }
-
-  if (item.id === "curly_hair") {
-    drawPixelPattern(
-      grid,
-      [
-        [7, headY - 1],
-        [9, headY - 2],
-        [12, headY - 2],
-        [15, headY - 1],
-        [5, headY + 1],
-        [18, headY + 1],
-        [5, headY + 4],
-        [18, headY + 4]
-      ],
-      OUTLINE
-    );
-    drawRect(grid, 6, headY, 12, 3, OUTLINE);
-    drawRect(grid, 5, headY + 2, 4, 5, OUTLINE);
-    drawRect(grid, 15, headY + 2, 4, 5, OUTLINE);
-    drawRect(grid, 7, headY, 10, 2, primary);
-    drawRect(grid, 6, headY + 2, 3, 4, primary);
-    drawRect(grid, 15, headY + 2, 3, 4, primary);
-    drawPixelPattern(
-      grid,
-      [
-        [8, headY],
-        [11, headY + 1],
-        [14, headY],
-        [6, headY + 3],
-        [17, headY + 3]
-      ],
-      accent
-    );
-  }
-
-  if (item.id === "ponytail_hair") {
-    drawRect(grid, 8, headY - 1, 8, 1, OUTLINE);
-    drawRect(grid, 6, headY, 12, 3, OUTLINE);
-    drawRect(grid, 5, headY + 2, 3, 5, OUTLINE);
-    drawRect(grid, 16, headY + 2, 3, 5, OUTLINE);
-    drawRect(grid, 18, headY + 6, 4, 3, OUTLINE);
-    drawRect(grid, 19, headY + 9, 2, 1, OUTLINE);
-    drawRect(grid, 8, headY, 8, 1, light);
-    drawRect(grid, 7, headY + 1, 10, 2, primary);
-    drawRect(grid, 6, headY + 3, 2, 3, primary);
-    drawRect(grid, 16, headY + 3, 2, 3, shade);
-    drawRect(grid, 8, headY + 3, 2, 1, primary);
-    setPixel(grid, 8, headY + 4, shade);
-    drawRect(grid, 19, headY + 7, 2, 2, primary);
-    setPixel(grid, 18, headY + 6, accent);
-  }
-
-  if (item.id === "princess_hair") {
-    drawRect(grid, 6, headY - 1, 12, 2, OUTLINE);
-    drawRect(grid, 4, headY + 1, 5, 11, OUTLINE);
-    drawRect(grid, 15, headY + 1, 5, 11, OUTLINE);
-    drawRect(grid, 6, headY + 8, 12, 5, OUTLINE);
-    drawRect(grid, 7, headY - 1, 10, 2, primary);
-    drawRect(grid, 5, headY + 1, 4, 10, primary);
-    drawRect(grid, 15, headY + 1, 4, 10, primary);
-    drawRect(grid, 7, headY + 9, 10, 3, primary);
-    drawRect(grid, 6, headY + 4, 2, 6, light);
-    drawRect(grid, 16, headY + 4, 2, 6, shade);
-    drawPixelPattern(
-      grid,
-      [
-        [8, headY + 1],
-        [9, headY + 2],
-        [14, headY + 1],
-        [15, headY + 2],
-        [10, headY + 10],
-        [13, headY + 10]
-      ],
-      accent
-    );
-  }
-
-  if (item.id === "short_bangs") {
-    drawRect(grid, 7, headY - 1, 10, 1, OUTLINE);
-    drawRect(grid, 5, headY, 14, 3, OUTLINE);
-    drawRect(grid, 5, headY + 2, 3, 5, OUTLINE);
-    drawRect(grid, 16, headY + 2, 3, 5, OUTLINE);
-    drawRect(grid, 7, headY - 1, 10, 1, primary);
-    drawRect(grid, 6, headY, 12, 2, primary);
-    drawRect(grid, 6, headY + 2, 2, 4, shade);
-    drawRect(grid, 16, headY + 2, 2, 4, shade);
-    drawPixelPattern(
-      grid,
-      [
-        [8, headY + 2],
-        [10, headY + 2],
-        [12, headY + 2],
-        [14, headY + 2],
-        [16, headY + 2]
-      ],
-      accent
-    );
-  }
-
-  if (item.id === "braided_hair") {
-    drawRect(grid, 6, headY - 1, 12, 2, OUTLINE);
-    drawRect(grid, 4, headY + 1, 5, 8, OUTLINE);
-    drawRect(grid, 15, headY + 1, 5, 8, OUTLINE);
-    drawRect(grid, 3, headY + 8, 4, 7, OUTLINE);
-    drawRect(grid, 17, headY + 8, 4, 7, OUTLINE);
-    drawRect(grid, 7, headY - 1, 10, 2, primary);
-    drawRect(grid, 5, headY + 1, 4, 7, primary);
-    drawRect(grid, 15, headY + 1, 4, 7, primary);
-    drawRect(grid, 4, headY + 9, 2, 5, primary);
-    drawRect(grid, 18, headY + 9, 2, 5, primary);
-    drawPixelPattern(
-      grid,
-      [
-        [4, headY + 9],
-        [5, headY + 11],
-        [4, headY + 13],
-        [18, headY + 9],
-        [19, headY + 11],
-        [18, headY + 13]
       ],
       accent
     );
@@ -896,8 +726,8 @@ function drawEyeLayer(grid, character, bob) {
     return;
   }
 
-  drawRect(grid, 9, eyeY, 2, 2, OUTLINE);
-  drawRect(grid, 14, eyeY, 2, 2, OUTLINE);
+  drawRect(grid, 9, eyeY, 2, 3, OUTLINE);
+  drawRect(grid, 14, eyeY, 2, 3, OUTLINE);
   setPixel(grid, 10, eyeY, "#F8FBFF");
   setPixel(grid, 15, eyeY, "#F8FBFF");
 }
@@ -914,6 +744,8 @@ function drawToolLayer(grid, character, bob, item = getItemById(character.equipp
     drawRect(grid, 19, 15 + bob, 2, 3, item.style.primary);
     drawRect(grid, 22, 15 + bob, 1, 3, item.style.primary);
     setPixel(grid, 19, 14 + bob, item.style.accent);
+    setPixel(grid, 19, 15 + bob, lighten(item.style.primary, 0.35));
+    drawRect(grid, 20, 16 + bob, 1, 2, darken(item.style.primary, 0.22));
     return;
   }
   if (item.id === "field_book") {
@@ -922,12 +754,14 @@ function drawToolLayer(grid, character, bob, item = getItemById(character.equipp
     drawRect(grid, 19, 14 + bob, 1, 5, "#DDD9BF");
     drawRect(grid, 21, 15 + bob, 1, 3, item.style.accent);
     setPixel(grid, 20, 16 + bob, item.style.accent);
+    drawRect(grid, 20, 18 + bob, 2, 1, darken(item.style.primary, 0.28));
     return;
   }
   if (item.id === "trail_sword") {
     drawRect(grid, 20, 10 + bob, 2, 8, OUTLINE);
     setPixel(grid, 20, 9 + bob, OUTLINE);
     drawRect(grid, 20, 11 + bob, 1, 6, item.style.primary);
+    drawRect(grid, 21, 11 + bob, 1, 5, lighten(item.style.primary, 0.3));
     drawRect(grid, 18, 17 + bob, 5, 1, item.style.accent);
     drawRect(grid, 20, 18 + bob, 1, 3, "#775A3B");
     return;
@@ -1190,6 +1024,9 @@ function drawBackLayer(grid, character, bob) {
     drawRect(grid, 3, 13 + bob, 4, 7, primary);
     drawRect(grid, 3, 16 + bob, 3, 1, accent);
     setPixel(grid, 3, 14 + bob, lighten(primary, 0.2));
+    drawRect(grid, 6, 14 + bob, 1, 5, darken(primary, 0.3));
+    drawRect(grid, 3, 18 + bob, 3, 1, darken(primary, 0.2));
+    setPixel(grid, 4, 16 + bob, lighten(accent, 0.25));
   } else {
     drawRect(grid, 6, 12 + bob, 12, 4, OUTLINE);
     drawRect(grid, 3, 16 + bob, 18, 5, OUTLINE);
@@ -1198,7 +1035,40 @@ function drawBackLayer(grid, character, bob) {
     drawRect(grid, 3, 18 + bob, 18, 2, primary);
     drawRect(grid, 6, 13 + bob, 12, 4, primary);
     drawRect(grid, 3, 20 + bob, 18, 1, accent);
+    drawRect(grid, 4, 17 + bob, 1, 3, lighten(primary, 0.24));
+    drawRect(grid, 6, 16 + bob, 1, 4, darken(primary, 0.3));
+    drawRect(grid, 17, 16 + bob, 1, 4, darken(primary, 0.3));
+    drawRect(grid, 19, 18 + bob, 1, 2, darken(primary, 0.2));
   }
+}
+
+function drawStrapsLayer(grid, character, bob) {
+  const item = getItemById(character.equipped.back);
+  if (!item) return;
+  if (item.id === "teal_backpack") {
+    drawRect(grid, 8, 13 + bob, 1, 4, item.style.accent);
+    drawRect(grid, 15, 13 + bob, 1, 4, darken(item.style.accent, 0.18));
+    setPixel(grid, 8, 16 + bob, OUTLINE);
+    setPixel(grid, 15, 16 + bob, OUTLINE);
+  } else if (item.id === "small_bag") {
+    drawPixelPattern(grid, [[8, 13 + bob], [9, 14 + bob], [10, 15 + bob], [11, 16 + bob], [12, 17 + bob], [13, 18 + bob], [14, 19 + bob]], item.style.accent);
+  }
+}
+
+function drawGripLayer(grid, character, bob) {
+  const item = getItemById(character.equipped.tool);
+  if (!item || ["wooden_shield", "kite_shield"].includes(item.id)) return;
+  let x = LEFT_HAND_TOOLS.has(item.id) ? 4 : 20;
+  let y = 16 + bob;
+  if (["travel_mug", "field_book", "health_potion"].includes(item.id)) x = 18;
+  if (item.id === "trail_sword") y += 2;
+  if (item.id === "steel_dagger") { x = 19; y -= 2; }
+  if (item.id === "long_bow") { x = 20; y -= 2; }
+  if (item.id === "spear") x = 21;
+  if (item.id === "spellbook") x = 6;
+  setPixel(grid, x - (LEFT_HAND_TOOLS.has(item.id) ? -1 : 1), y, OUTLINE);
+  setPixel(grid, x, y, character.bodyColor);
+  setPixel(grid, x, y + 1, mixColor(character.bodyColor, "#A85C4A", 0.18));
 }
 
 function drawHairLayers(back, front, character, bob) {
@@ -1225,23 +1095,31 @@ function drawHairLayers(back, front, character, bob) {
 function renderCharacterLayers(characterInput, frameIndex = 0) {
   const character = normalizeCharacter(characterInput, characterInput?.version || "1.2.0");
   const frame = Number.isInteger(frameIndex) ? ((frameIndex % 4) + 4) % 4 : 0;
-  const bob = [0, 0, 1, 0][frame];
-  const layers = Object.fromEntries(["shadow", "back", "hairBack", "body", "clothes", "hairFront", "head", "eyes", "face", "tool"].map((key) => [key, createGrid()]));
+  const pose = WALK_POSES[frame];
+  const bob = pose.bob;
+  const layers = Object.fromEntries(["shadow", "back", "hairBack", "body", "clothes", "straps", "hairFront", "head", "eyes", "face", "tool", "grip"].map((key) => [key, createGrid()]));
   drawRect(layers.shadow, 7, 23, 10, 1, SHADOW, 90);
   drawBackLayer(layers.back, character, bob);
   drawHairLayers(layers.hairBack, layers.hairFront, character, bob);
-  drawBodyLayer(layers.body, character, bob);
+  drawBodyLayer(layers.body, character, bob, pose);
   drawClothesLayer(layers.clothes, character, bob, frame);
+  drawStrapsLayer(layers.straps, character, bob);
   drawHeadLayer(layers.head, character, bob);
   drawEyeLayer(layers.eyes, character, bob);
   drawToolLayer(layers.face, character, bob, getItemById(character.equipped.face));
-  drawToolLayer(layers.tool, character, bob);
+  const toolBob = bob + (LEFT_HAND_TOOLS.has(character.equipped.tool) ? pose.leftArm : pose.rightArm);
+  drawToolLayer(layers.tool, character, toolBob);
+  drawGripLayer(layers.grip, character, toolBob);
   return layers;
 }
 
 function drawCharacterGrid(characterInput, frameIndex = 0) {
+  return composeLayers(renderCharacterLayers(characterInput, frameIndex));
+}
+
+function composeLayers(layers) {
   const grid = createGrid();
-  for (const layer of Object.values(renderCharacterLayers(characterInput, frameIndex))) {
+  for (const layer of Object.values(layers)) {
     for (let i = 0; i < layer.length; i++) if (layer[i][3]) grid[i] = layer[i];
   }
   return grid;
@@ -1276,9 +1154,24 @@ function renderCharacterBuffer(characterInput, frameIndex = 0, scale = 2) {
   return gridToPngBuffer(grid, Math.max(1, Math.round(scale)));
 }
 
-function renderTrayCharacterBuffer(characterInput, frameIndex = 0) {
-  const grid = drawCharacterGrid(characterInput, frameIndex);
-  return gridToPngBuffer(grid, 1, TRAY_PADDING);
+function renderTrayCharacterBuffer(characterInput, frameIndex = 0, { platform = process.platform, scaleFactor = 1 } = {}) {
+  const scale = scaleFactor === 2 ? 2 : 1;
+  const layers = renderCharacterLayers(characterInput, frameIndex);
+  const grid = composeLayers(layers);
+  if (platform !== "darwin") return gridToPngBuffer(grid, scale, TRAY_PADDING);
+  // Fit the completed frame, never individual layers; a 1pt rim fits inside 22pt.
+  const contentSize = (MAC_TRAY_SIZE - 2) * scale;
+  const size = MAC_TRAY_SIZE * scale;
+  const png = new PNG({ width: size, height: size });
+  const silhouette = new Uint8Array(size * size);
+  const foreground = composeLayers(Object.fromEntries(Object.entries(layers).filter(([key]) => key !== "shadow")));
+  for (let y = 0; y < contentSize; y++) for (let x = 0; x < contentSize; x++) {
+    const source = Math.floor(y * VIRTUAL_SIZE / contentSize) * VIRTUAL_SIZE + Math.floor(x * VIRTUAL_SIZE / contentSize);
+    const dest = (y + scale) * size + x + scale;
+    png.data.set(grid[source], dest * 4);
+    silhouette[dest] = foreground[source][3] ? 1 : 0;
+  }
+  return PNG.sync.write(addOuterOutline(png, silhouette, scale));
 }
 
 function renderCharacterDataUrl(character, frameIndex = 0, scale = 8) {
@@ -1313,6 +1206,8 @@ function renderItemDataUrl(itemId) {
 }
 
 module.exports = {
+  MAC_TRAY_SIZE,
+  WALK_POSES,
   TRAY_PADDING,
   VIRTUAL_SIZE,
   renderCharacterLayers,

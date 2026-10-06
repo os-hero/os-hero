@@ -40,7 +40,7 @@ module.exports = async function ({ panel, BrowserWindow, app, tray, output, chec
         if (route === "inventory") await js("document.getElementById('inventory-category').value='back'; document.getElementById('inventory-category').dispatchEvent(new Event('change'))");
         await wait(80);
         const result = await measure();
-        metrics.push({size, language, route, ...result});
+        metrics.push({size, language, route, expectedBounds: JSON.parse(bounds), nativeBounds: panel.getBounds(), ...result});
         fs.writeFileSync(path.join(output,"tray-layout-measurements.json"), JSON.stringify(metrics,null,2));
         check(`${size[0]} ${language} ${route}: same native bounds and window`, JSON.stringify(panel.getBounds()) === bounds && BrowserWindow.getAllWindows().length === 1 && panel.id === originalId);
         check(`${size[0]} ${language} ${route}: content fits horizontally`, result.documentWidth <= size[0] && result.pageScrollWidth <= result.pageWidth + 1 && result.overflow.length === 0);

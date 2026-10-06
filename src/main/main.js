@@ -18,7 +18,8 @@ const {
 
 const { CpuMonitor } = require("./cpu");
 const { AppStore } = require("./store");
-const { renderCharacterDataUrl, renderTrayCharacterBuffer, renderItemDataUrl } = require("./pixelRenderer");
+const { renderCharacterDataUrl, renderItemDataUrl } = require("./pixelRenderer");
+const { createTrayImage } = require("./trayImage");
 const { REWARDS, dayKey, normalizeExpedition, changeExpedition, advanceExpedition, publicExpedition } = require("../shared/expedition");
 const { companionMessages } = require("../shared/companionMessages");
 const { HAIR_COLORS, wardrobeMessages } = require("../shared/wardrobe");
@@ -903,8 +904,7 @@ function showTrayContextMenu() {
 }
 
 function createTray() {
-  const initialImage = nativeImage.createFromBuffer(renderTrayCharacterBuffer(character, 0));
-  initialImage.setTemplateImage(false);
+  const initialImage = createTrayImage(character, 0);
   tray = new Tray(initialImage);
   tray.setToolTip(`${APP_NAME} - CPU ${Math.round(cpuMonitor.percent)}%`);
   refreshTrayMenu();

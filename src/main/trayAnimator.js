@@ -1,5 +1,4 @@
-const { nativeImage } = require("electron");
-const { renderTrayCharacterBuffer } = require("./pixelRenderer");
+const { createTrayImage } = require("./trayImage");
 
 function intervalForCpu(cpuPercent) {
   if (cpuPercent < 10) {
@@ -32,11 +31,7 @@ class TrayAnimator {
   }
 
   updateCharacter(character) {
-    this.frames = [0, 1, 2, 3].map((frameIndex) => {
-      const image = nativeImage.createFromBuffer(renderTrayCharacterBuffer(character, frameIndex));
-      image.setTemplateImage(false);
-      return image;
-    });
+    this.frames = [0, 1, 2, 3].map((frameIndex) => createTrayImage(character, frameIndex));
 
     this.frameIndex = 0;
     if (this.tray && this.frames[0]) {

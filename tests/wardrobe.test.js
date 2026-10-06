@@ -6,7 +6,7 @@ const path = require("node:path");
 const { PNG } = require("pngjs");
 const { ITEMS, ITEM_CATEGORIES, defaultCharacter, normalizeCharacter, equipItem, unequipSlot } = require("../src/shared/catalog");
 const { HAIR_IDS, HAIR_COLORS, WARDROBE_ITEMS, wardrobeMessages } = require("../src/shared/wardrobe");
-const { renderCharacterLayers, renderCharacterBuffer, renderItemDataUrl } = require("../src/main/pixelRenderer");
+const { WALK_POSES, renderCharacterLayers, renderCharacterBuffer, renderItemDataUrl } = require("../src/main/pixelRenderer");
 const { AppStore } = require("../src/main/store");
 
 test("legacy hair / glasses / bag migrate without changing stable IDs, and normalization is idempotent", () => {
@@ -52,7 +52,7 @@ test("every item draws inside the native canvas and independent layers follow th
     for (const layers of poses) for (const [name, grid] of Object.entries(layers)) assert.deepEqual(grid.clippedPixels, [], `${item.id}/${name}`);
     for (const name of ["back", "hairBack", "hairFront", "head", "eyes", "face", "tool"]) {
       for (let y = 0; y < 23; y++) for (let x = 0; x < 24; x++) {
-        assert.deepEqual(poses[0][name][y * 24 + x], poses[2][name][(y + 1) * 24 + x], `${item.id}/${name}/${x},${y}`);
+        assert.deepEqual(poses[0][name][y * 24 + x], poses[1][name][(y + 1) * 24 + x], `${item.id}/${name}/${x},${y}`);
       }
     }
   }
@@ -64,7 +64,7 @@ test("all hair x headwear x color x frame combinations preserve the central face
     const hero = { ...defaultCharacter(), hairColor, equipped: { hair, head, clothes: "rune_coat", back: "teal_cape", tool: "field_book" } };
     const layers = renderCharacterLayers(hero, frame);
     for (const [name, grid] of Object.entries(layers)) assert.equal(grid.clippedPixels.length, 0, `${hair}/${head}/${name}`);
-    const bob = [0, 0, 1, 0][frame];
+    const bob = WALK_POSES[frame].bob;
     for (let y = 6 + bob; y < 11 + bob; y++) for (let x = 8; x <= 15; x++) assert.equal(layers.hairFront[y * 24 + x][3], 0, `${hair} covers face`);
     for (let y = 11 + bob; y <= 12 + bob; y++) for (let x = 10; x <= 13; x++) assert.equal(layers.hairFront[y * 24 + x][3], 0, `${hair} covers chin`);
   }

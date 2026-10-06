@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { defaultCharacter, equipItem } = require("../src/shared/catalog");
-const { renderCharacterDataUrl } = require("../src/main/pixelRenderer");
+const { renderCharacterDataUrl, renderTrayCharacterBuffer } = require("../src/main/pixelRenderer");
 
 module.exports = async function ({ panel, BrowserWindow, profile, output, check, capture, wait }) {
   const js = (code) => panel.webContents.executeJavaScript(code, true);
@@ -74,6 +74,7 @@ module.exports = async function ({ panel, BrowserWindow, profile, output, check,
   await capture(inventory, "wardrobe-inventory-compact.png");
   await js("navigateTray('companion')");
   await renderLookBoard({ BrowserWindow, capture });
+  await renderMenuContrastBoard({ BrowserWindow, capture });
 };
 
 async function renderLookBoard({ BrowserWindow, capture }) {
@@ -94,5 +95,19 @@ async function renderLookBoard({ BrowserWindow, capture }) {
   const board = new BrowserWindow({ width: 1536, height: 1024, useContentSize: true, show: false, webPreferences: { contextIsolation: true, nodeIntegration: false } });
   await board.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   await capture(board, "wardrobe-native-board.png");
+  board.close();
+}
+
+async function renderMenuContrastBoard({ BrowserWindow, capture }) {
+  const heroes = [
+    { hair: "long_hair", clothes: "ninja_suit", tool: "iron_sword" },
+    { hair: "princess_hair", head: "rune_hat", clothes: "rune_coat", tool: "magic_staff" },
+    { hair: "braided_hair", clothes: "travel_jacket", back: "teal_backpack", tool: "travel_mug" }
+  ].map((equipped) => ({ ...defaultCharacter(), hairColor: "#29262E", equipped }));
+  const columns = ["#131518", "#666B72", "#F0F2F5"];
+  const html = `<html><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;padding:28px;background:white;font:14px -apple-system,sans-serif;color:#17212b}h1{font-size:22px;margin:0 0 10px}p{margin:0 0 22px;color:#657181}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.bar{padding:8px 20px;display:flex;gap:18px;align-items:center}.bar img{width:22px;height:22px}.zoom{padding:24px;display:flex;justify-content:center}.zoom img{width:132px;height:132px}img{image-rendering:pixelated;image-rendering:crisp-edges}</style><h1>OS Hero · macOS 메뉴바 가독성</h1><p>실제 렌더링 · 22pt / Retina 44px · 1pt 흰색 외곽선(88%) · 아래는 6배 확대</p><div class="grid">${heroes.map((hero) => columns.map((background) => `<section><div class="bar" style="background:${background}">${[0,1,2,3].map((frame) => `<img src="data:image/png;base64,${renderTrayCharacterBuffer(hero, frame, { platform: "darwin", scaleFactor: 2 }).toString("base64")}">`).join("")}</div><div class="zoom" style="background:${background}"><img src="data:image/png;base64,${renderTrayCharacterBuffer(hero, 0, { platform: "darwin", scaleFactor: 2 }).toString("base64")}"></div></section>`).join("")).join("")}</div></html>`;
+  const board = new BrowserWindow({ width: 960, height: 840, useContentSize: true, show: false, webPreferences: { contextIsolation: true, nodeIntegration: false } });
+  await board.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  await capture(board, "pixel-menu-contrast.png");
   board.close();
 }
