@@ -88,9 +88,9 @@ app.whenReady().then(async () => {
       const { PNG } = require("pngjs");
       for (let frame = 0; frame < 4; frame++) {
         const image = createTrayImage(state.character, frame);
-        check(`native tray frame ${frame} is 22 logical points`, image.getSize().width === 22 && image.getSize().height === 22);
+        check(`native tray frame ${frame} is restored to 26 logical points`, image.getSize().width === 26 && image.getSize().height === 26);
         check(`native tray frame ${frame} includes Retina without template tint`, image.getScaleFactors().includes(2) && !image.isTemplateImage());
-        check(`native tray frame ${frame} Retina PNG is 44 physical pixels`, PNG.sync.read(image.toPNG({ scaleFactor: 2 })).width === 44);
+        check(`native tray frame ${frame} Retina PNG is 52 physical pixels`, PNG.sync.read(image.toPNG({ scaleFactor: 2 })).width === 52);
       }
     }
     check("existing gold preserved", state.wallet.gold === 17);

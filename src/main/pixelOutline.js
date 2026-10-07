@@ -1,7 +1,7 @@
 const { PNG } = require("pngjs");
 
 // Flood from the canvas edge so closed gaps (eyes, straps, handles) stay clear.
-function addOuterOutline(source, silhouette, thickness = 1, alpha = 224) {
+function addOuterOutline(source, silhouette, thickness = 1, alpha = 51) {
   const { width, height } = source;
   const exterior = new Uint8Array(width * height);
   const queue = [];

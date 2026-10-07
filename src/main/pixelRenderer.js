@@ -8,7 +8,7 @@ const {
 
 const VIRTUAL_SIZE = 24;
 const TRAY_PADDING = 1;
-const MAC_TRAY_SIZE = 22;
+const MAC_TRAY_SIZE = VIRTUAL_SIZE + TRAY_PADDING * 2;
 const OUTLINE = "#1F2328";
 const SHADOW = "#000000";
 const { addOuterOutline } = require("./pixelOutline");
@@ -1159,15 +1159,15 @@ function renderTrayCharacterBuffer(characterInput, frameIndex = 0, { platform = 
   const layers = renderCharacterLayers(characterInput, frameIndex);
   const grid = composeLayers(layers);
   if (platform !== "darwin") return gridToPngBuffer(grid, scale, TRAY_PADDING);
-  // Fit the completed frame, never individual layers; a 1pt rim fits inside 22pt.
-  const contentSize = (MAC_TRAY_SIZE - 2) * scale;
+  // Preserve every canonical pixel; the outline uses the existing padding.
+  const contentSize = VIRTUAL_SIZE * scale;
   const size = MAC_TRAY_SIZE * scale;
   const png = new PNG({ width: size, height: size });
   const silhouette = new Uint8Array(size * size);
   const foreground = composeLayers(Object.fromEntries(Object.entries(layers).filter(([key]) => key !== "shadow")));
   for (let y = 0; y < contentSize; y++) for (let x = 0; x < contentSize; x++) {
-    const source = Math.floor(y * VIRTUAL_SIZE / contentSize) * VIRTUAL_SIZE + Math.floor(x * VIRTUAL_SIZE / contentSize);
-    const dest = (y + scale) * size + x + scale;
+    const source = Math.floor(y / scale) * VIRTUAL_SIZE + Math.floor(x / scale);
+    const dest = (y + TRAY_PADDING * scale) * size + x + TRAY_PADDING * scale;
     png.data.set(grid[source], dest * 4);
     silhouette[dest] = foreground[source][3] ? 1 : 0;
   }

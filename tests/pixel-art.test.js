@@ -17,14 +17,36 @@ test("outer outline has crisp corners, no inner-hole halo and does not mutate th
   const before = Buffer.from(source.data);
   const out = addOuterOutline(source, mask);
   const at = (x, y) => Array.from(out.data.subarray((y * 9 + x) * 4, (y * 9 + x) * 4 + 4));
-  assert.deepEqual(at(2, 2), [255, 255, 255, 224]);
+  assert.deepEqual(at(2, 2), [255, 255, 255, 51]);
   assert.deepEqual(at(4, 4), [0, 0, 0, 0]);
   assert.deepEqual(at(1, 3), [0, 0, 0, 0]);
   assert.deepEqual(at(3, 3), [31, 35, 40, 255]);
   assert.deepEqual(source.data, before);
   const doubled = addOuterOutline(source, mask, 2);
-  assert.equal(doubled.data[(3 * 9 + 1) * 4 + 3], 224);
+  assert.equal(doubled.data[(3 * 9 + 1) * 4 + 3], 51);
   assert.equal(doubled.data[(3 * 9) * 4 + 3], 0);
+});
+
+test("20 percent outline changes opacity only, not canvas, silhouette or foreground", () => {
+  const source = new PNG({ width: 9, height: 9 });
+  const mask = new Uint8Array(81);
+  for (let y = 3; y <= 5; y++) for (let x = 3; x <= 5; x++) {
+    mask[y * 9 + x] = 1;
+    source.data.set([31, 35, 40, 255], (y * 9 + x) * 4);
+  }
+  for (const thickness of [1, 2]) {
+    const before = addOuterOutline(source, mask, thickness, 224);
+    const after = addOuterOutline(source, mask, thickness);
+    assert.equal(after.width, before.width);
+    assert.equal(after.height, before.height);
+    for (let i = 0; i < mask.length; i++) {
+      const offset = i * 4;
+      assert.equal(after.data[offset + 3] > 0, before.data[offset + 3] > 0);
+      assert.deepEqual(after.data.subarray(offset, offset + 3), before.data.subarray(offset, offset + 3));
+      if (before.data[offset + 3] === 224) assert.equal(after.data[offset + 3], 51);
+      else assert.equal(after.data[offset + 3], before.data[offset + 3]);
+    }
+  }
 });
 
 test("shadow-only pixels never generate an outline", () => {
