@@ -207,8 +207,8 @@ button:disabled {
 .preview-frame {
   display: grid;
   place-items: center;
-  width: min(256px, 100%);
-  aspect-ratio: 1;
+  width: min(234px, 100%);
+  aspect-ratio: 3 / 2;
   border: 1px solid var(--line);
   border-radius: 8px;
   background:
@@ -226,8 +226,10 @@ button:disabled {
 }
 
 .preview-frame img {
-  width: 192px;
-  height: 192px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: contain;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }

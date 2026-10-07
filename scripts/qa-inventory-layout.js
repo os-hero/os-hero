@@ -15,7 +15,7 @@ module.exports = async function ({ panel, BrowserWindow, output, check, capture,
       await js(`window.osHeroApi.setLanguage(${JSON.stringify(language)})`);
       await wait(80);
       const group = [];
-      for (const tab of ["back", "hair", "head", "face", "clothes", "tool", "back"]) {
+      for (const tab of ["back", "hair", "head", "face", "clothes", "tool", "background", "back"]) {
         await js(`document.getElementById('inventory-category').value=${JSON.stringify(tab)};document.getElementById('inventory-category').dispatchEvent(new Event('change'))`);
         await wait(60);
         const metrics = await js(`(() => {

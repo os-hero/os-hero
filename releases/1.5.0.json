@@ -1,0 +1,39 @@
+{
+  "version": "1.5.0",
+  "copy": {
+    "ko": {
+      "summary": "히어로를 위한 픽셀 배경 10종을 추가했습니다.",
+      "notes": [
+        "푸른 초원, 소나무 숲, 청록 해변, 노을 사막, 설산, 벚꽃 정원, 비 오는 마을, 달빛 호수, 가을숲, 화산 길을 모두 기본 제공합니다.",
+        "인벤토리의 배경 분류에서 미리보고 착용하면 macOS 메뉴바에 즉시 반영됩니다. 선택한 배경은 재실행 후에도 유지됩니다.",
+        "메뉴바는 3:2 픽셀 장면으로 넓어지고 히어로는 중앙에 배치됩니다. 추가했던 흰색 외곽선은 제거하고 원래 픽셀 윤곽선을 유지합니다.",
+        "캐릭터 원본 크기와 모든 애니메이션 프레임은 유지하며, 인벤토리 미리보기도 같은 히어로와 배경을 사용합니다.",
+        "기존 히어로, 장비, 퀘스트, 골드와 탐험 보상은 보존됩니다. 첫 배경 저장 전 캐릭터 원장을 로컬에 백업합니다."
+      ]
+    },
+    "en": {
+      "summary": "Ten pixel backgrounds for your Hero, all included by default.",
+      "notes": [
+        "Blue Meadow, Pine Forest, Turquoise Coast, Sunset Dunes, Snowy Peaks, Blossom Garden, Rainy Village, Moonlit Lake, Autumn Woods and Volcanic Trail are included for every player.",
+        "Preview and equip backgrounds from Inventory. The macOS menu bar updates immediately and your selection survives a restart.",
+        "The menu bar now shows a wider 3:2 pixel scene with your Hero centered. The added white outline is removed; the original pixel outline stays intact.",
+        "Original Hero dimensions and all animation frames are preserved. Inventory previews use the same Hero and background.",
+        "Existing Heroes, equipment, quests, gold and expedition rewards are preserved. The character ledger is backed up locally before the first background save."
+      ]
+    },
+    "zh": {
+      "summary": "新增十种像素背景，所有玩家默认拥有。",
+      "notes": [
+        "默认提供蓝天草原、松树林、碧海沙滩、落日沙漠、雪山、樱花庭院、雨中小镇、月光湖、秋日森林和火山小径。",
+        "在物品栏的背景分类中预览并装备，即可实时更新 macOS 菜单栏。重启后仍保留所选背景。",
+        "菜单栏采用更宽的 3:2 像素场景，英雄居中显示。移除额外的白色外轮廓，保留原始像素轮廓。",
+        "保留英雄原始尺寸及全部动画帧，物品栏预览使用相同的英雄和背景。",
+        "保留现有英雄、装备、任务、金币及探险奖励。首次保存背景前会在本地备份角色记录。"
+      ]
+    }
+  },
+  "installation": {
+    "en": "Apple Silicon macOS 12 or later. Signed 1.3.x and later clients use the existing stable update channel without forced restart. Old public ad-hoc 1.2.0 installations may need one manual DMG installation; keep your application data.",
+    "ko": "Apple Silicon, macOS 12 이상용입니다. 정식 서명된 1.3.x 이상은 기존 안정 채널로 업데이트하며 사용 중 강제 재시작하지 않습니다. 과거 임시 서명 1.2.0은 DMG로 한 번 직접 설치해야 할 수 있으며, 앱 데이터는 삭제하지 마세요."
+  }
+}

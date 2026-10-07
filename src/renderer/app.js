@@ -117,7 +117,7 @@ async function updatePreview(imgElement, character, scale = CHARACTER_PREVIEW_SC
   const request = (previewRequests.get(imgElement) || 0) + 1;
   previewRequests.set(imgElement, request);
   const canonical = JSON.stringify(character) === state.hero?.key;
-  const src = canonical ? state.hero.frames[previewFrame] : await api.renderCharacter(character, previewFrame, 1);
+  const src = canonical ? state.hero.sceneFrames[previewFrame] : await api.renderScene(character, previewFrame, 1);
   if (imgElement.isConnected && previewRequests.get(imgElement) === request) {
     imgElement.src = src;
     imgElement.dataset.heroKey = canonical ? state.hero.key : "draft";
@@ -400,6 +400,7 @@ function renderInventory() {
       return text("inventory.equip");
     }
 
+    if (item.slot === "background") return text(item.isDefault ? "inventory.equipped" : "inventory.resetBackground");
     return item.slot === "clothes" ? text("inventory.equipped") : text("inventory.unequip");
   };
 
@@ -448,7 +449,7 @@ function renderInventory() {
                   const equipped = state.character.equipped[item.slot] === item.id;
                   return `
                     <button class="item-row ${item.id === selectedItemId ? "selected" : ""}" data-item="${item.id}">
-                      <img class="item-thumbnail" src="${state.itemThumbnails[item.id]}" alt="" />
+                      <img class="item-thumbnail ${item.slot === "background" ? "landscape-thumbnail" : ""}" src="${state.itemThumbnails[item.id]}" alt="" />
                       <span>
                         <h3>${escapeHtml(itemName(item))}</h3>
                         <p>${textHtml("inventory.slot", { category: categoryName(item.category) })}</p>
@@ -468,7 +469,7 @@ function renderInventory() {
                 <p class="preview-note">${selectedItem ? textHtml("inventory.itemType", { category: categoryName(selectedItem.category) }) : ""}</p>
               </div>
               <div class="action-row">
-                <button id="equip-button" class="primary-button" ${selectedItem ? "" : "disabled"}>${escapeHtml(buttonLabel(selectedItem))}</button>
+                <button id="equip-button" class="primary-button" ${!selectedItem || (selectedItem.slot === "background" && selectedItem.isDefault && state.character.equipped.background === selectedItem.id) ? "disabled" : ""}>${escapeHtml(buttonLabel(selectedItem))}</button>
               </div>
             </section>
           </div>

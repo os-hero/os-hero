@@ -4,6 +4,7 @@ const DEFAULT_CLOTHES_ID = "default_clothes";
 const DEFAULT_GENDER = "male";
 const { DEFAULT_LANGUAGE, normalizeLanguage } = require("./i18n");
 const { HAIR_IDS, HAIR_COLORS, WARDROBE_ITEMS } = require("./wardrobe");
+const { DEFAULT_BACKGROUND_ID, BACKGROUND_ITEMS } = require("./backgrounds");
 
 const GENDER_OPTIONS = [
   {
@@ -57,7 +58,8 @@ const ITEM_CATEGORIES = [
   { id: "face", name: "Face" },
   { id: "clothes", name: "Clothes" },
   { id: "back", name: "Back" },
-  { id: "tool", name: "Tools" }
+  { id: "tool", name: "Tools" },
+  { id: "background", name: "Backgrounds" }
 ];
 
 const ITEMS = [
@@ -757,6 +759,7 @@ for (const item of ITEMS) {
   if (item.id === "small_bag") item.slot = item.category = "back";
 }
 ITEMS.push(...WARDROBE_ITEMS);
+ITEMS.push(...BACKGROUND_ITEMS);
 for (const item of ITEMS.filter((entry) => entry.slot === "head")) {
   item.hairFit = ["knight_helmet", "horned_helm", "ninja_hood"].includes(item.id) ? "cover"
     : ["gold_crown", "silver_circlet"].includes(item.id) ? "band" : "cap";
@@ -785,7 +788,8 @@ function defaultEquipped() {
     face: null,
     clothes: DEFAULT_CLOTHES_ID,
     back: null,
-    tool: null
+    tool: null,
+    background: DEFAULT_BACKGROUND_ID
   };
 }
 
@@ -869,7 +873,7 @@ function unequipSlot(character, slot) {
   }
 
   const next = normalizeCharacter(character, character.version);
-  next.equipped[slot] = slot === "clothes" ? DEFAULT_CLOTHES_ID : null;
+  next.equipped[slot] = slot === "clothes" ? DEFAULT_CLOTHES_ID : slot === "background" ? DEFAULT_BACKGROUND_ID : null;
   return next;
 }
 

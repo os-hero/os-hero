@@ -18,11 +18,12 @@ const {
 
 const { CpuMonitor } = require("./cpu");
 const { AppStore } = require("./store");
-const { renderCharacterDataUrl, renderItemDataUrl } = require("./pixelRenderer");
+const { renderCharacterDataUrl, renderSceneDataUrl, renderItemDataUrl } = require("./pixelRenderer");
 const { createTrayImage } = require("./trayImage");
 const { REWARDS, dayKey, normalizeExpedition, changeExpedition, advanceExpedition, publicExpedition } = require("../shared/expedition");
 const { companionMessages } = require("../shared/companionMessages");
 const { HAIR_COLORS, wardrobeMessages } = require("../shared/wardrobe");
+const { backgroundMessages } = require("../shared/backgrounds");
 const { TRAY_ROUTES, TRAY_PANEL_SIZE, trayPanelBounds, normalizeTraySession, isOutsideClick } = require("../shared/trayPanel");
 const { createOutsideClickMonitor } = require("./outsideClick");
 const { TrayAnimator } = require("./trayAnimator");
@@ -207,7 +208,7 @@ function getPublicState() {
       version: currentVersion()
     },
     languageOptions: LANGUAGE_OPTIONS,
-    messages: { ...getMessages(language), ...companionMessages(language), ...wardrobeMessages(language), ...updateMessages(language) },
+    messages: { ...getMessages(language), ...companionMessages(language), ...wardrobeMessages(language), ...backgroundMessages(language), ...updateMessages(language) },
     hairColors: HAIR_COLORS,
     itemThumbnails,
     eyeTypes: EYE_TYPES,
@@ -233,7 +234,11 @@ function ownsItem(id) {
 function getHeroPresentation() {
   const key = JSON.stringify(character);
   if (!heroPresentation || heroPresentation.key !== key) {
-    heroPresentation = { key, frames: [0, 1, 2, 3].map((frame) => renderCharacterDataUrl(character, frame, 1)) };
+    heroPresentation = {
+      key,
+      frames: [0, 1, 2, 3].map((frame) => renderCharacterDataUrl(character, frame, 1)),
+      sceneFrames: [0, 1, 2, 3].map((frame) => renderSceneDataUrl(character, frame, 1))
+    };
   }
   return heroPresentation;
 }
@@ -995,6 +1000,15 @@ function registerIpcHandlers() {
     const safeFrame = Number.isInteger(frameIndex) && frameIndex >= 0 ? frameIndex % 4 : 0;
     const safeScale = Number.isFinite(scale) ? Math.min(12, Math.max(1, Math.round(scale))) : 8;
     return renderCharacterDataUrl(normalized, safeFrame, safeScale);
+  });
+
+  ipcMain.handle("character:render-scene", (_event, draft, frameIndex, scale) => {
+    const normalized = normalizeCharacter(
+      { ...character, ...(draft || {}), equipped: (draft && draft.equipped) || character.equipped }, currentVersion()
+    );
+    const frame = Number.isInteger(frameIndex) && frameIndex >= 0 ? frameIndex % 4 : 0;
+    const safeScale = Number.isFinite(scale) ? Math.min(12, Math.max(1, Math.round(scale))) : 1;
+    return renderSceneDataUrl(normalized, frame, safeScale);
   });
 
   ipcMain.handle("expedition:action", (_event, payload) => {

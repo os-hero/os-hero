@@ -11,7 +11,7 @@ const TRAY_PADDING = 1;
 const MAC_TRAY_SIZE = VIRTUAL_SIZE + TRAY_PADDING * 2;
 const OUTLINE = "#1F2328";
 const SHADOW = "#000000";
-const { addOuterOutline } = require("./pixelOutline");
+const { sceneBuffer, backgroundDataUrl } = require("./pixelScene");
 const WALK_POSES = Object.freeze([
   Object.freeze({ bob: 0, leftFoot: 0, rightFoot: -1, leftArm: 0, rightArm: -1 }),
   Object.freeze({ bob: 1, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: -1 }),
@@ -1156,22 +1156,14 @@ function renderCharacterBuffer(characterInput, frameIndex = 0, scale = 2) {
 
 function renderTrayCharacterBuffer(characterInput, frameIndex = 0, { platform = process.platform, scaleFactor = 1 } = {}) {
   const scale = scaleFactor === 2 ? 2 : 1;
-  const layers = renderCharacterLayers(characterInput, frameIndex);
-  const grid = composeLayers(layers);
+  const grid = drawCharacterGrid(characterInput, frameIndex);
   if (platform !== "darwin") return gridToPngBuffer(grid, scale, TRAY_PADDING);
-  // Preserve every canonical pixel; the outline uses the existing padding.
-  const contentSize = VIRTUAL_SIZE * scale;
-  const size = MAC_TRAY_SIZE * scale;
-  const png = new PNG({ width: size, height: size });
-  const silhouette = new Uint8Array(size * size);
-  const foreground = composeLayers(Object.fromEntries(Object.entries(layers).filter(([key]) => key !== "shadow")));
-  for (let y = 0; y < contentSize; y++) for (let x = 0; x < contentSize; x++) {
-    const source = Math.floor(y / scale) * VIRTUAL_SIZE + Math.floor(x / scale);
-    const dest = (y + TRAY_PADDING * scale) * size + x + TRAY_PADDING * scale;
-    png.data.set(grid[source], dest * 4);
-    silhouette[dest] = foreground[source][3] ? 1 : 0;
-  }
-  return PNG.sync.write(addOuterOutline(png, silhouette, scale));
+  return sceneBuffer(grid, normalizeCharacter(characterInput).equipped.background, scale);
+}
+
+function renderSceneDataUrl(characterInput, frameIndex = 0, scale = 1) {
+  const buffer = sceneBuffer(drawCharacterGrid(characterInput, frameIndex), normalizeCharacter(characterInput).equipped.background, Math.min(12, Math.max(1, Math.round(scale) || 1)));
+  return `data:image/png;base64,${buffer.toString("base64")}`;
 }
 
 function renderCharacterDataUrl(character, frameIndex = 0, scale = 8) {
@@ -1181,6 +1173,7 @@ function renderCharacterDataUrl(character, frameIndex = 0, scale = 8) {
 function renderItemDataUrl(itemId) {
   const item = getItemById(itemId);
   if (!item) throw new Error("Unknown item");
+  if (item.slot === "background") return backgroundDataUrl(item.id);
   const character = normalizeCharacter({ equipped: { [item.slot]: item.id } }, "1.2.0");
   const grid = createGrid();
   if (["head", "hair"].includes(item.slot)) drawHeadLayer(grid, character, 0, item);
@@ -1214,5 +1207,6 @@ module.exports = {
   renderCharacterBuffer,
   renderTrayCharacterBuffer,
   renderCharacterDataUrl,
+  renderSceneDataUrl,
   renderItemDataUrl
 };

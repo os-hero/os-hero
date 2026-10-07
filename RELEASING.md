@@ -44,6 +44,8 @@ This validates credentials, tests, builds arm64 DMG/ZIP without automatic publis
 
 ## Failure and Recovery
 
+The 1.5.0 background slot is additive within character schema v2. Its first write keeps a private pre-background copy at `backups/pixel-backgrounds/character.json`. A previous six-slot app ignores the new slot while preserving the other equipment; never roll back quests, gold or expedition records to undo this visual feature. Backgrounds are bundled starter items, not new reward entitlements. Public recovery still requires a higher corrective version, not changing published 1.4.x or 1.5.0 bytes.
+
 For updater lifecycle changes, also run the real Squirrel test on macOS after building. It re-signs disposable copies with separate bundle IDs/profiles and serves a loopback feed; it never installs into `/Applications` or uses real user records. `OS_HERO_QA_BASELINE` must be an older-version signed fixture carrying the policy under test (build it before bumping the version). Both regular Quit and explicit Restart must replace the bundle and preserve data; only Restart may relaunch. Ownership/cleanup/results go to `review-artifacts/2026-10-06/native-*`. Existing local signing tools are used; no global installation or login item is added.
 
 ```sh

@@ -9,9 +9,9 @@ const { ElectronHttpExecutor } = require("electron-updater/out/electronHttpExecu
 const version = require("../package.json").version;
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "oshero-public-update-"));
 app.setPath("userData", root);
-const output = path.resolve(__dirname, "../review-artifacts/2026-10-06");
+const output = process.env.OS_HERO_QA_OUTPUT || path.resolve(__dirname, "../review-artifacts/2026-10-06");
 fs.mkdirSync(output, {recursive: true});
-const report = {version, checks: [], nativeInstallation: "separate signed fixture QA", passed: false};
+const report = {version, checks: [], nativeInstallation: "not performed; this test checks discovery and download only", passed: false};
 let updater;
 const adapter = current => ({version: current, name: "OS Hero Public Update QA", isPackaged: true,
   appUpdateConfigPath: path.resolve(__dirname, "../release/mac-arm64/OS Hero.app/Contents/Resources/app-update.yml"),

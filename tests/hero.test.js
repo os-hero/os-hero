@@ -4,6 +4,7 @@ const { PNG } = require("pngjs");
 const { defaultCharacter, equipItem, ITEMS } = require("../src/shared/catalog");
 const { MAC_TRAY_SIZE, WALK_POSES, renderCharacterBuffer, renderTrayCharacterBuffer, renderItemDataUrl } = require("../src/main/pixelRenderer");
 const { companionMessages } = require("../src/shared/companionMessages");
+const { SCENE_WIDTH, SCENE_HEIGHT, HERO_X, HERO_Y } = require("../src/shared/backgrounds");
 
 test("non-mac tray preserves the full canonical pixels, without an outline", () => {
   for (const gender of ["male", "female"]) {
@@ -21,21 +22,21 @@ test("non-mac tray preserves the full canonical pixels, without an outline", () 
     }
   }
 });
-test("mac tray preserves every canonical pixel at original size at 1x and Retina", () => {
+test("mac landscape preserves every opaque canonical pixel at original size at 1x and Retina, with no halo", () => {
   assert.equal(MAC_TRAY_SIZE, 26);
   for (const gender of ["male", "female"]) for (const item of ITEMS) for (let frame = 0; frame < 4; frame++) {
     const hero = equipItem({ ...defaultCharacter(), gender }, item.id);
     const original = PNG.sync.read(renderCharacterBuffer(hero, frame, 1));
     for (const scaleFactor of [1, 2]) {
       const tray = PNG.sync.read(renderTrayCharacterBuffer(hero, frame, { platform: "darwin", scaleFactor }));
-      const size = 26 * scaleFactor, content = 24 * scaleFactor;
-      assert.equal(tray.width, size); assert.equal(tray.height, size);
+      const width = SCENE_WIDTH * scaleFactor, content = 24 * scaleFactor;
+      assert.equal(tray.width, width); assert.equal(tray.height, SCENE_HEIGHT * scaleFactor);
       for (let y = 0; y < content; y++) for (let x = 0; x < content; x++) {
         const from = (Math.floor(y / scaleFactor) * 24 + Math.floor(x / scaleFactor)) * 4;
-        const to = ((y + scaleFactor) * size + x + scaleFactor) * 4;
+        const to = ((y + HERO_Y * scaleFactor) * width + x + HERO_X * scaleFactor) * 4;
         if (original.data[from + 3] === 255) assert.deepEqual(tray.data.subarray(to, to + 4), original.data.subarray(from, from + 4), `${item.id}/${frame}/${scaleFactor}`);
       }
-      assert.ok(tray.data.some((v, i) => i % 4 === 3 && v === 51), `${item.id} has a 20 percent white silhouette`);
+      assert.ok(tray.data.every((v, i) => i % 4 !== 3 || v === 255), `${item.id} has no translucent white halo`);
     }
   }
 });

@@ -26,6 +26,8 @@ const api = {
   },
   renderCharacter: (character, frameIndex, scale) =>
     ipcRenderer.invoke("character:render", character, frameIndex, scale),
+  renderScene: (character, frameIndex, scale) =>
+    ipcRenderer.invoke("character:render-scene", character, frameIndex, scale),
   saveCharacter: (draft) => ipcRenderer.invoke("character:save", draft),
   cancelCustomization: () => ipcRenderer.invoke("character:cancel-customization"),
   updateEquipment: (payload) => ipcRenderer.invoke("inventory:update-equipment", payload),

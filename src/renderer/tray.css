@@ -18,8 +18,8 @@
 .tray-page :is(button,select) { white-space: normal; }
 .tray-page .window-title { font-size: 20px; }
 .tray-page .preview-pane, .tray-page .form-pane, .tray-page .inventory-list, .tray-page .quest-panel, .tray-page .settings-panel, .tray-page .about-panel { border: 0; border-radius: 0; box-shadow: none; padding: 0; }
-.tray-page .preview-frame { border: 0; border-radius: 0; background: transparent; width: 100%; max-width: 192px; }
-.tray-page .preview-frame img { width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; }
+.tray-page .preview-frame { border: 0; border-radius: 0; background: transparent; width: 100%; max-width: 234px; }
+.tray-page .preview-frame img { width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: contain; }
 .tray-page .preview-pane { gap: 8px; }
 .tray-page .preview-note { display: none; }
 .tray-page .side-preview .form-pane .preview-note { display: block; }
@@ -35,6 +35,7 @@
 .tray-page .item-row { grid-template-columns: 36px minmax(0, 1fr); gap: 10px; border: 1px solid transparent; border-bottom-color: var(--line); border-radius: 0; background: transparent; padding: 12px 8px; min-height: 66px; flex-shrink: 0; text-align: left; }
 .tray-page .item-row.selected { border: 1px solid var(--accent); border-radius: 6px; background: #edf5ff; }
 .tray-page .item-thumbnail { width: 36px; height: 36px; }
+.item-thumbnail.landscape-thumbnail { object-fit: contain; }
 .tray-page .item-row h3 { font-weight: 500; font-size: 14px; }
 .tray-page .item-row p { display: none; }
 .tray-page .item-row .badge { grid-column: 2; justify-self: start; min-height: 16px; padding: 0; background: none; font-size: 11px; }

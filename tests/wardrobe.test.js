@@ -81,12 +81,15 @@ test("every pair of slots retains both items and renders without clipping in all
   }
 });
 
-test("all catalog thumbnails are actual nonempty transparent images and new items are localized", () => {
+test("catalog thumbnails are nonempty, with opaque landscapes and transparent equipment", () => {
   for (const item of ITEMS) {
     const png = PNG.sync.read(Buffer.from(renderItemDataUrl(item.id).split(",")[1], "base64"));
     const alpha = png.data.filter((_, i) => i % 4 === 3);
     assert.ok(alpha.some((value) => value > 0), item.id);
-    assert.ok(alpha.some((value) => value === 0), item.id);
+    if (item.slot === "background") {
+      assert.equal(png.width, 39); assert.equal(png.height, 26);
+      assert.ok(alpha.every((value) => value === 255), item.id);
+    } else assert.ok(alpha.some((value) => value === 0), item.id);
   }
   for (const lang of ["ko", "en", "zh-CN"]) for (const item of WARDROBE_ITEMS) assert.ok(wardrobeMessages(lang)[`item.${item.id}`]);
   const base = defaultCharacter();

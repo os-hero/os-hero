@@ -18,11 +18,14 @@ childProcess.spawn = function (command, ...args) {
 };
 const { app, BrowserWindow, powerMonitor, Tray } = require("electron");
 let qaTray = null;
+let qaTrayImage = null;
 const trayOn = Tray.prototype.on;
 Tray.prototype.on = function (...args) { qaTray = this; return trayOn.apply(this, args); };
+const setTrayImage = Tray.prototype.setImage;
+Tray.prototype.setImage = function (image) { qaTrayImage = image; return setTrayImage.call(this, image); };
 const { defaultCharacter } = require("../src/shared/catalog");
 const { normalizeExpedition, dayKey } = require("../src/shared/expedition");
-const scenario = process.argv.includes("--updates") ? "updates" : process.argv.includes("--tray-shell") ? "tray-shell" : process.argv.includes("--inventory-layout") ? "inventory-layout" : process.argv.includes("--wardrobe") ? "wardrobe" : process.argv.includes("--restart") ? "restart" : process.argv.includes("--completion") ? "completion" : "flow";
+const scenario = process.argv.includes("--backgrounds") ? "backgrounds" : process.argv.includes("--updates") ? "updates" : process.argv.includes("--tray-shell") ? "tray-shell" : process.argv.includes("--inventory-layout") ? "inventory-layout" : process.argv.includes("--wardrobe") ? "wardrobe" : process.argv.includes("--restart") ? "restart" : process.argv.includes("--completion") ? "completion" : "flow";
 const profile = process.env.OS_HERO_QA_PROFILE || fs.mkdtempSync(path.join(os.tmpdir(), "oshero-qa-"));
 const output = process.env.OS_HERO_QA_OUTPUT || path.resolve(__dirname, `../review-artifacts/${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })}`);
 fs.mkdirSync(output, { recursive: true });
@@ -42,6 +45,10 @@ process.env.OS_HERO_USER_DATA_DIR = profile;
 const write = (name, data) => fs.writeFileSync(path.join(profile, name), JSON.stringify(data));
 const base = defaultCharacter("1.2.0");
 write("character.json", base);
+if (scenario === "backgrounds") {
+  const old = structuredClone(base); delete old.equipped.background;
+  write("character.json", old);
+}
 if (scenario === "wardrobe") write("character.json", { hasCharacter: true, gender: "male", bodyColor: "#F1C27D", eyeType: "default", equipped: { head: "long_hair", clothes: "default_clothes", tool: "small_bag" }, version: "1.2.0" });
 write("settings.json", { language: "ko", launchAtLogin: false });
 write("wallet.json", { gold: 17 });
@@ -88,9 +95,10 @@ app.whenReady().then(async () => {
       const { PNG } = require("pngjs");
       for (let frame = 0; frame < 4; frame++) {
         const image = createTrayImage(state.character, frame);
-        check(`native tray frame ${frame} is restored to 26 logical points`, image.getSize().width === 26 && image.getSize().height === 26);
+        check(`native tray frame ${frame} has 39x26 logical points`, image.getSize().width === 39 && image.getSize().height === 26);
         check(`native tray frame ${frame} includes Retina without template tint`, image.getScaleFactors().includes(2) && !image.isTemplateImage());
-        check(`native tray frame ${frame} Retina PNG is 52 physical pixels`, PNG.sync.read(image.toPNG({ scaleFactor: 2 })).width === 52);
+        const retina = PNG.sync.read(image.toPNG({ scaleFactor: 2 }));
+        check(`native tray frame ${frame} Retina PNG has 78x52 physical pixels`, retina.width === 78 && retina.height === 52);
       }
     }
     check("existing gold preserved", state.wallet.gold === 17);
@@ -98,7 +106,9 @@ app.whenReady().then(async () => {
     check("canonical icons match hero at same frame", await js("JSON.stringify(Array.from(document.querySelectorAll('[data-canonical-hero]')).map(img=>img.src).every(src=>src===document.querySelector('[data-canonical-hero]').src))") === "true");
     await capture(panel, `${scenario}-desktop.png`);
 
-    if (scenario === "updates") {
+    if (scenario === "backgrounds") {
+      await require("./qa-backgrounds")({ panel, BrowserWindow, profile, output, check, capture, wait, getTrayImage: () => qaTrayImage });
+    } else if (scenario === "updates") {
       await require("./qa-updates").run({ panel, app, profile, output, check, capture, wait, qaUpdates });
     } else if (scenario === "tray-shell") {
       await require("./qa-tray-shell")({ panel, BrowserWindow, app, tray: qaTray, profile, output, check, capture, wait });
@@ -112,6 +122,7 @@ app.whenReady().then(async () => {
       check("running checkpoint resumes paused with no offline credit", !state.expedition.running && state.expedition.progress.expedition_cloak === 0);
       check("restart does not duplicate reward", state.expedition.unlocked.length === 1);
       check("all independent slots and hair color survive restart", state.character.equipped.hair === "ponytail_hair" && state.character.equipped.face === "round_glasses" && state.character.equipped.back === "teal_backpack" && state.character.equipped.tool === "travel_mug" && state.character.hairColor === "#714D38");
+      check("selected background survives restart with all four scene frames", state.character.equipped.background === "background_moon_lake" && state.hero.sceneFrames.length === 4);
     } else if (scenario === "completion") {
       const prior = state.character;
       await js("window.osHeroApi.expeditionAction({action:'start'})");
@@ -124,7 +135,7 @@ app.whenReady().then(async () => {
       check("replayed starts cannot duplicate reward", state.expedition.unlocked.length === 1 && !state.expedition.running);
       const saved = JSON.parse(fs.readFileSync(path.join(profile, "expedition.json")));
       check("entitlement and progress durable together", saved.unlocked.length === 1 && saved.progress.expedition_star_hat === 75 * 60000);
-      for (const id of ["ponytail_hair", "round_glasses", "teal_backpack", "travel_mug", "travel_jacket"]) await js(`window.osHeroApi.updateEquipment({action:'equip',itemId:${JSON.stringify(id)}})`);
+      for (const id of ["ponytail_hair", "round_glasses", "teal_backpack", "travel_mug", "travel_jacket", "background_moon_lake"]) await js(`window.osHeroApi.updateEquipment({action:'equip',itemId:${JSON.stringify(id)}})`);
       await js(`window.osHeroApi.saveCharacter({gender:'male',bodyColor:'#F1C27D',eyeType:'default',hairColor:'#714D38'})`);
       await js("window.osHeroApi.updateEquipment({action:'equip',itemId:'expedition_star_hat'})");
       await wait(300);
@@ -178,7 +189,7 @@ app.whenReady().then(async () => {
       await js("window.osHeroApi.openTrayView('inventory')");
       await wait(300);
       const inventory = panel;
-      check("inventory opens with six independent categories", inventory && await inventory.webContents.executeJavaScript("document.querySelectorAll('[data-tab]').length === 6"));
+      check("inventory opens with seven independent categories", inventory && await inventory.webContents.executeJavaScript("document.querySelectorAll('[data-tab]').length === 7"));
       await inventory.webContents.executeJavaScript("document.querySelector('[data-item=long_hair]').click()");
       await wait(150);
       check("inventory worn-item preview uses same canonical pixels", await inventory.webContents.executeJavaScript(`document.getElementById('character-preview').dataset.heroKey === ${JSON.stringify(state.hero.key)}`));

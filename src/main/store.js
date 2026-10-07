@@ -51,6 +51,16 @@ class AppStore {
         if (error.code !== "EEXIST") throw error;
       }
     }
+    if (previous && !Object.hasOwn(previous.equipped || {}, "background")) {
+      const backup = path.join(this.userDataPath, "backups", "pixel-backgrounds", "character.json");
+      fs.mkdirSync(path.dirname(backup), { recursive: true, mode: 0o700 });
+      try {
+        fs.copyFileSync(this.characterPath, backup, fs.constants.COPYFILE_EXCL);
+        fs.chmodSync(backup, 0o600);
+      } catch (error) {
+        if (error.code !== "EEXIST") throw error;
+      }
+    }
     writeJson(this.characterPath, character);
   }
 

@@ -8,7 +8,7 @@ module.exports = async function ({ panel, BrowserWindow, profile, output, check,
   const original = fs.readFileSync(path.join(profile, "character.json"), "utf8");
   let state = await js("window.osHeroApi.getState()");
   check("legacy head and tool slots migrate in memory", state.character.equipped.hair === "long_hair" && state.character.equipped.back === "small_bag" && !state.character.equipped.head && !state.character.equipped.tool);
-  check("68 items include all 50 legacy owned items plus 15 starter items", state.items.length === 65);
+  check("all 65 owned wardrobe items and 10 backgrounds retained", state.items.length === 75);
   await js("window.osHeroApi.openTrayView('inventory')");
   await wait(250);
   const inventory = panel;
@@ -70,7 +70,7 @@ module.exports = async function ({ panel, BrowserWindow, profile, output, check,
   }
   inventory.setSize(390, 720);
   await wait(200);
-  check("six category tabs remain within narrow window", await ij("document.documentElement.scrollWidth <= innerWidth"));
+  check("seven category tabs remain within narrow window", await ij("document.documentElement.scrollWidth <= innerWidth"));
   await capture(inventory, "wardrobe-inventory-compact.png");
   await js("navigateTray('companion')");
   await renderLookBoard({ BrowserWindow, capture });
@@ -105,7 +105,7 @@ async function renderMenuContrastBoard({ BrowserWindow, capture }) {
     { hair: "braided_hair", clothes: "travel_jacket", back: "teal_backpack", tool: "travel_mug" }
   ].map((equipped) => ({ ...defaultCharacter(), hairColor: "#29262E", equipped }));
   const columns = ["#131518", "#666B72", "#F0F2F5"];
-  const html = `<html><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;padding:28px;background:white;font:14px -apple-system,sans-serif;color:#17212b}h1{font-size:22px;margin:0 0 10px}p{margin:0 0 22px;color:#657181}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.bar{padding:8px 20px;display:flex;gap:18px;align-items:center}.bar img{width:26px;height:26px}.zoom{padding:24px;display:flex;justify-content:center}.zoom img{width:156px;height:156px}img{image-rendering:pixelated;image-rendering:crisp-edges}</style><h1>OS Hero · macOS 메뉴바 가독성</h1><p>원본 24px 유지 · 전체 26pt / Retina 52px · 1pt 흰색 외곽선(불투명도 20%) · 아래는 6배 확대</p><div class="grid">${heroes.map((hero) => columns.map((background) => `<section><div class="bar" style="background:${background}">${[0,1,2,3].map((frame) => `<img src="data:image/png;base64,${renderTrayCharacterBuffer(hero, frame, { platform: "darwin", scaleFactor: 2 }).toString("base64")}">`).join("")}</div><div class="zoom" style="background:${background}"><img src="data:image/png;base64,${renderTrayCharacterBuffer(hero, 0, { platform: "darwin", scaleFactor: 2 }).toString("base64")}"></div></section>`).join("")).join("")}</div></html>`;
+  const html = `<html><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;padding:28px;background:white;font:14px -apple-system,sans-serif;color:#17212b}h1{font-size:22px;margin:0 0 10px}p{margin:0 0 22px;color:#657181}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.bar{padding:8px 16px;display:flex;gap:16px;align-items:center}.bar img{width:39px;height:26px}.zoom{padding:24px;display:flex;justify-content:center}.zoom img{width:234px;height:156px}img{image-rendering:pixelated;image-rendering:crisp-edges}</style><h1>OS Hero · macOS 메뉴바 가독성</h1><p>원본 24px 유지 · 배경 39×26pt / Retina 78×52px · 흰 외곽선 없음 · 아래는 6배 확대</p><div class="grid">${heroes.map((hero) => columns.map((background) => `<section><div class="bar" style="background:${background}">${[0,1,2,3].map((frame) => `<img src="data:image/png;base64,${renderTrayCharacterBuffer(hero, frame, { platform: "darwin", scaleFactor: 2 }).toString("base64")}">`).join("")}</div><div class="zoom" style="background:${background}"><img src="data:image/png;base64,${renderTrayCharacterBuffer(hero, 0, { platform: "darwin", scaleFactor: 2 }).toString("base64")}"></div></section>`).join("")).join("")}</div></html>`;
   const board = new BrowserWindow({ width: 960, height: 920, useContentSize: true, show: false, webPreferences: { contextIsolation: true, nodeIntegration: false } });
   await board.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   await capture(board, "pixel-menu-contrast.png");
