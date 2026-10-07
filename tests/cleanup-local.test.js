@@ -116,3 +116,35 @@ test("cleanup retains an accurate audit report if a later removal fails", t => {
   assert.ok(!fs.existsSync(first));
   assert.ok(fs.existsSync(second));
 });
+
+test("cleanup includes strictly named legacy installers only in explicitly scoped release roots", t => {
+  const f = fixture(t);
+  const primary = path.join(f.root, "primary-release"); fs.mkdirSync(primary);
+  const names = ["OS Hero-1.2.0-arm64-mac.zip", "OS Boy-0.1.0-arm64.dmg.blockmap", "OS-Hero-1.5.1-arm64.zip", "hero-assets.zip", "other-1.2.0-arm64.dmg"];
+  for (const name of names) fs.writeFileSync(path.join(primary, name), "fixture");
+  const plan = planCleanup({ ...f.options, releaseDirs: [primary] });
+  assert.deepEqual(plan.candidates.map(c => path.basename(c.path)).sort(), names.slice(0, 2).sort());
+  f.apply(plan);
+  for (const name of names.slice(0, 2)) assert.ok(!fs.existsSync(path.join(primary, name)));
+  for (const name of names.slice(2)) assert.ok(fs.existsSync(path.join(primary, name)));
+});
+
+test("cleanup validates unpacked app identity and rejects changes before removal", t => {
+  const f = fixture(t);
+  const build = path.join(f.release, "win-unpacked"); fs.mkdirSync(path.join(build, "resources"), { recursive: true });
+  const archive = path.join(build, "resources/app.asar");
+  const windowsMetadata = dir => JSON.parse(fs.readFileSync(path.join(dir, "resources/app.asar")));
+  const meta = { name: "os-hero", version: "0.1.20", main: "src/main/main.js" };
+  fs.writeFileSync(archive, JSON.stringify(meta));
+  const options = { ...f.options, windowsBuilds: [build], windowsMetadata };
+  const plan = planCleanup(options);
+  assert.equal(plan.candidates[0].kind, "unpacked-app");
+  const apply = (value, inUse) => applyCleanup(value, { verifiedVersion: "1.5.1", windowsMetadata, getExecutables: () => [], inUse });
+  assert.equal(apply(plan, () => true).removed.length, 0);
+  fs.writeFileSync(archive, JSON.stringify({ ...meta, version: "1.6.0" }));
+  assert.throws(() => apply(plan, () => false), /metadata changed/);
+  assert.equal(planCleanup(options).candidates.length, 0);
+  fs.writeFileSync(archive, JSON.stringify(meta));
+  assert.equal(apply(planCleanup(options), () => false).removed.length, 1);
+  assert.ok(!fs.existsSync(build));
+});

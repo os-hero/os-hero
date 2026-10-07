@@ -4,6 +4,7 @@ const { execFileSync, spawnSync } = require("child_process");
 const crypto = require("crypto");
 const semver = require("semver");
 const yaml = require("js-yaml");
+const asar = require("@electron/asar");
 const { validateRelease, RELEASE_REPO } = require("./release-feed");
 
 const APP_ID = "com.themercenary.oshero";
@@ -15,12 +16,14 @@ const identity = file => {
 };
 const plainPath = file => !fs.lstatSync(file).isSymbolicLink() && fs.realpathSync(file) === path.resolve(file);
 const readMetadata = bundle => JSON.parse(execFileSync("/usr/bin/plutil", ["-convert", "json", "-o", "-", path.join(bundle, "Contents/Info.plist")], { encoding: "utf8" }));
+const readWindowsMetadata = bundle => JSON.parse(asar.extractFile(path.join(bundle, "resources/app.asar"), "package.json"));
 const runningExecutables = () => execFileSync("/bin/ps", ["-axo", "comm="], { encoding: "utf8" }).split("\n").map(line => line.trim()).filter(Boolean);
 const runningBundle = (bundle, executables) => executables.some(file => file === bundle || file.startsWith(`${bundle}${path.sep}`));
 
-function planCleanup({ applicationsDir, releaseDir, buildApps = [], version, metadata = readMetadata, executables = runningExecutables() }) {
+function planCleanup({ applicationsDir, releaseDir, releaseDirs = [], buildApps = [], windowsBuilds = [], version, metadata = readMetadata, windowsMetadata = readWindowsMetadata, executables = runningExecutables() }) {
   if (!semver.valid(version) || semver.prerelease(version)) throw Error("Cleanup requires a stable release version");
-  const plan = { version, candidates: [], skipped: [], protected: [path.join(applicationsDir, "OS Hero.app")], roots: [applicationsDir, releaseDir] };
+  const installerRoots = [...new Set([releaseDir, ...releaseDirs])];
+  const plan = { version, candidates: [], skipped: [], protected: [path.join(applicationsDir, "OS Hero.app")], roots: [applicationsDir, ...installerRoots] };
   for (const root of plan.roots) if (exists(root) && (!fs.lstatSync(root).isDirectory() || !plainPath(root))) throw Error(`Unsafe cleanup root: ${root}`);
   const apps = exists(applicationsDir) ? fs.readdirSync(applicationsDir).filter(name => /^OS Hero\.app\.backup-[\w.-]+$/.test(name)).map(name => path.join(applicationsDir, name)) : [];
   for (const bundle of [...apps, ...buildApps]) {
@@ -34,35 +37,51 @@ function planCleanup({ applicationsDir, releaseDir, buildApps = [], version, met
       plan.candidates.push({ path: bundle, kind: "app", version: meta.CFBundleShortVersionString, identity: identity(bundle), plistIdentity: identity(plist) });
     } catch (error) { plan.skipped.push({ path: bundle, reason: error.message }); }
   }
-  if (exists(releaseDir)) for (const name of fs.readdirSync(releaseDir)) {
-    const match = /^OS-Hero-(\d+\.\d+\.\d+)-arm64\.(dmg|zip)(\.blockmap)?$/.exec(name);
+  for (const bundle of windowsBuilds) {
+    if (!exists(bundle)) continue;
+    try {
+      const archive = path.join(bundle, "resources/app.asar");
+      if (!plainPath(bundle) || !fs.lstatSync(bundle).isDirectory() || !plainPath(archive) || !fs.lstatSync(archive).isFile()) throw Error("symlink or unexpected unpacked path");
+      const meta = windowsMetadata(bundle);
+      if (meta.name !== "os-hero" || meta.main !== "src/main/main.js" || !semver.valid(meta.version) || semver.gt(meta.version, version)) throw Error("unrecognized or newer unpacked app");
+      if (runningBundle(bundle, executables)) throw Error("running unpacked app");
+      plan.candidates.push({ path: bundle, kind: "unpacked-app", version: meta.version, identity: identity(bundle), archiveIdentity: identity(archive) });
+    } catch (error) { plan.skipped.push({ path: bundle, reason: error.message }); }
+  }
+  for (const dir of installerRoots) if (exists(dir)) for (const name of fs.readdirSync(dir)) {
+    const match = /^(?:OS-Hero-|OS (?:Hero|Boy)-)(\d+\.\d+\.\d+)-arm64(?:-mac)?\.(dmg|zip)(\.blockmap)?$/.exec(name);
     if (!match || !semver.valid(match[1]) || !semver.lt(match[1], version)) continue;
-    const file = path.join(releaseDir, name);
+    const file = path.join(dir, name);
     if (!plainPath(file) || !fs.lstatSync(file).isFile()) { plan.skipped.push({ path: file, reason: "not a regular local installer" }); continue; }
     plan.candidates.push({ path: file, kind: "installer", version: match[1], identity: identity(file) });
   }
   return plan;
 }
 
-function applyCleanup(plan, { verifiedVersion, metadata = readMetadata, getExecutables = runningExecutables, inUse = file => spawnSync("/usr/sbin/lsof", ["-t", file], { encoding: "utf8" }).status !== 1, unregister = file => spawnSync(LSREGISTER, ["-u", file], { encoding: "utf8" }).status } = {}) {
+function applyCleanup(plan, { verifiedVersion, metadata = readMetadata, windowsMetadata = readWindowsMetadata, getExecutables = runningExecutables, inUse = file => spawnSync("/usr/sbin/lsof", fs.lstatSync(file).isDirectory() ? ["-t", "+D", file] : ["-t", file], { encoding: "utf8" }).status !== 1, unregister = file => spawnSync(LSREGISTER, ["-u", file], { encoding: "utf8" }).status } = {}) {
   if (verifiedVersion !== plan.version) throw Error("Verify the published release before applying cleanup");
   const report = { version: plan.version, mode: "apply", removed: [], skipped: [...plan.skipped], protected: plan.protected };
   try {
-  for (const candidate of plan.candidates) {
-    const file = candidate.path;
-    if (!exists(file)) continue;
-    if (!plainPath(file) || identity(file) !== candidate.identity) throw Error(`Cleanup candidate changed: ${file}`);
-    if (plan.protected.includes(file)) throw Error("Refusing to remove the installed app");
-    if (candidate.kind === "app") {
-      const meta = metadata(file);
-      if (identity(path.join(file, "Contents/Info.plist")) !== candidate.plistIdentity || meta.CFBundleIdentifier !== APP_ID || meta.CFBundleShortVersionString !== candidate.version) throw Error(`App metadata changed: ${file}`);
-      if (runningBundle(file, getExecutables())) { report.skipped.push({ path: file, reason: "app became active" }); continue; }
-      const registrationStatus = unregister(file);
-      if (registrationStatus !== 0) throw Error(`Could not unregister app copy: ${file}`);
-    } else if (inUse(file)) { report.skipped.push({ path: file, reason: "installer is open or mounted" }); continue; }
-    fs.rmSync(file, { recursive: candidate.kind === "app", force: false });
-    report.removed.push({ path: file, kind: candidate.kind, version: candidate.version });
-  }
+    for (const candidate of plan.candidates) {
+      const file = candidate.path;
+      if (!exists(file)) continue;
+      if (!plainPath(file) || identity(file) !== candidate.identity) throw Error(`Cleanup candidate changed: ${file}`);
+      if (plan.protected.includes(file)) throw Error("Refusing to remove the installed app");
+      if (candidate.kind === "app") {
+        const meta = metadata(file);
+        if (identity(path.join(file, "Contents/Info.plist")) !== candidate.plistIdentity || meta.CFBundleIdentifier !== APP_ID || meta.CFBundleShortVersionString !== candidate.version) throw Error(`App metadata changed: ${file}`);
+        if (runningBundle(file, getExecutables())) { report.skipped.push({ path: file, reason: "app became active" }); continue; }
+        const registrationStatus = unregister(file);
+        if (registrationStatus !== 0) throw Error(`Could not unregister app copy: ${file}`);
+      } else if (candidate.kind === "unpacked-app") {
+        const archive = path.join(file, "resources/app.asar");
+        const meta = windowsMetadata(file);
+        if (!plainPath(archive) || identity(archive) !== candidate.archiveIdentity || meta.name !== "os-hero" || meta.main !== "src/main/main.js" || meta.version !== candidate.version) throw Error(`Unpacked app metadata changed: ${file}`);
+        if (runningBundle(file, getExecutables()) || inUse(file)) { report.skipped.push({ path: file, reason: "unpacked app is in use" }); continue; }
+      } else if (inUse(file)) { report.skipped.push({ path: file, reason: "installer is open or mounted" }); continue; }
+      fs.rmSync(file, { recursive: candidate.kind !== "installer", force: false });
+      report.removed.push({ path: file, kind: candidate.kind, version: candidate.version });
+    }
   } catch (error) {
     report.error = error.message;
     error.cleanupReport = report;
@@ -104,8 +123,10 @@ async function main() {
   const version = require(path.join(root, "package.json")).version;
   const common = execFileSync("git", ["rev-parse", "--git-common-dir"], { cwd: root, encoding: "utf8" }).trim();
   const primary = path.dirname(path.resolve(root, common));
-  const buildApps = [...new Set([root, primary])].map(repo => path.join(repo, "release/mac-arm64/OS Hero.app"));
-  const plan = planCleanup({ applicationsDir: "/Applications", releaseDir: path.join(root, "release"), buildApps, version });
+  const releases = [...new Set([root, primary])].map(repo => path.join(repo, "release"));
+  const buildApps = releases.map(dir => path.join(dir, "mac-arm64/OS Hero.app"));
+  const windowsBuilds = releases.flatMap(dir => ["win-unpacked", "win-arm64-unpacked"].map(name => path.join(dir, name)));
+  const plan = planCleanup({ applicationsDir: "/Applications", releaseDir: releases[0], releaseDirs: releases.slice(1), buildApps, windowsBuilds, version });
   const apply = process.argv.includes("--apply");
   const output = process.env.OS_HERO_CLEANUP_REPORT || path.join(root, "review-artifacts", new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" }), `cleanup-${version}.json`);
   let report;
@@ -121,7 +142,7 @@ async function main() {
   } finally {
     fs.mkdirSync(path.dirname(output), { recursive: true });
     fs.writeFileSync(output, JSON.stringify(report, null, 2) + "\n");
-    console.log(JSON.stringify({ ...report, reportPath: output }, null, 2));
+    console.log(JSON.stringify({ version, mode: report.mode, candidateCount: report.candidates?.length, removedCount: report.removed?.length, skipped: report.skipped, protected: report.protected, publication: report.publication, error: report.error, reportPath: output }, null, 2));
   }
 }
 
