@@ -54,7 +54,7 @@ module.exports = async function ({ panel, BrowserWindow, profile, check, capture
   check("background metadata durable in canonical local ledger", JSON.parse(fs.readFileSync(path.join(profile, "character.json"))).equipped.background === state.character.equipped.background);
   await js("window.osHeroApi.updateEquipment({action:'unequip',slot:'background'})");
   state = await js("window.osHeroApi.getState()");
-  check("reset returns to meadow and never leaves an empty scene", state.character.equipped.background === "background_meadow");
+  check("background removal saves explicit transparent state and retains full-size scene", state.character.equipped.background === null && state.hero.sceneFrames.every(src => { const png = decode(src); return png.width === 39 && png.height === 26 && png.data.some((v, i) => i % 4 === 3 && v === 0); }));
   check("forged background item assignment is rejected", await js("window.osHeroApi.updateEquipment({action:'equip',itemId:'background_unknown'}).then(()=>false,()=>true)"));
   for (const language of ["ko", "en", "zh-CN"]) {
     await js(`window.osHeroApi.setLanguage(${JSON.stringify(language)})`);

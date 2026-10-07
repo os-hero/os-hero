@@ -1,6 +1,6 @@
 {
   "name": "os-hero",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "OS Hero tray/menu bar pixel character app",
   "main": "src/main/main.js",
   "author": "The Mercenary",
@@ -19,6 +19,8 @@
     "test": "node --test tests/*.test.js",
     "assets:backgrounds": "node scripts/generate-backgrounds.js",
     "test:electron": "node scripts/qa-runner.js",
+    "test:packaged": "node scripts/qa-package.js",
+    "cleanup:local": "node scripts/cleanup-local.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "dist:mac": "electron-builder --mac",

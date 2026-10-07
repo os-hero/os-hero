@@ -32,7 +32,7 @@ function persistTrayUi() {
   api.saveTraySession({
     ...trayUi, route: trayRoute, customizationDraft, customizationHairDirty, questRoute,
     hasUnsavedChanges: hasUnsavedTrayChanges(),
-    inventory: { tab: inventoryRoute.tab, item: inventoryRoute.item, scroll: [...inventoryRoute.scroll] }
+    inventory: { tab: inventoryRoute.tab, item: inventoryRoute.item, previewEquipped: inventoryRoute.previewEquipped, scroll: [...inventoryRoute.scroll] }
   });
 }
 
@@ -69,6 +69,7 @@ function restoreTraySession(session) {
   if (session.inventory) {
     inventoryRoute.tab = session.inventory.tab || "hair";
     inventoryRoute.item = session.inventory.item || null;
+    inventoryRoute.previewEquipped = session.inventory.previewEquipped === true;
     inventoryRoute.scroll = new Map(session.inventory.scroll || []);
   }
   trayUi = { scroll: session.scroll || {}, formValues: session.formValues || {}, dialog: session.dialog || null, quickQuest: session.quickQuest || "" };

@@ -814,6 +814,11 @@ function normalizeEquipped(input) {
   }
   const equipped = defaultEquipped();
   for (const slot of Object.keys(equipped)) {
+    // Missing legacy backgrounds get the meadow; explicit null means no background.
+    if (slot === "background" && source[slot] === null) {
+      equipped[slot] = null;
+      continue;
+    }
     const item = getItemById(source[slot]);
     if (item?.slot === slot) equipped[slot] = item.id;
   }
@@ -873,7 +878,7 @@ function unequipSlot(character, slot) {
   }
 
   const next = normalizeCharacter(character, character.version);
-  next.equipped[slot] = slot === "clothes" ? DEFAULT_CLOTHES_ID : slot === "background" ? DEFAULT_BACKGROUND_ID : null;
+  next.equipped[slot] = slot === "clothes" ? DEFAULT_CLOTHES_ID : null;
   return next;
 }
 

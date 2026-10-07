@@ -1055,8 +1055,13 @@ function registerIpcHandlers() {
     const { action, itemId, slot } = payload;
 
     if (action === "unequip") {
-      persistCharacter(unequipSlot(character, slot));
+      const next = unequipSlot(character, slot);
+      if (Object.hasOwn(payload, "itemId") && itemId !== character.equipped[slot]) {
+        throw new Error("Equipment changed; try again");
+      }
+      if (next.equipped[slot] !== character.equipped[slot]) persistCharacter(next);
     } else if (action === "equip" && ownsItem(itemId)) {
+      if (slot !== undefined && getItemById(itemId)?.slot !== slot) throw new Error("Equipment slot mismatch");
       persistCharacter(equipItem(character, itemId));
     } else {
       throw new Error("Item not owned or invalid action");

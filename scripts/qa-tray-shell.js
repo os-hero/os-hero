@@ -112,7 +112,10 @@ module.exports = async function ({ panel, BrowserWindow, app, tray, output, chec
   await js("document.getElementById('hair-style').value='princess_hair';document.getElementById('hair-style').dispatchEvent(new Event('change'));persistTrayUi()");
   await wait(100);
   // Click on the tray icon is outside the popup, so closes it without losing drafts.
+  panel.show();
+  check("idle-destroy test starts from a visible popup", panel.isVisible());
   app.emit("second-instance");
+  check("tray toggle actually hides the popup before idle wait", !panel.isVisible());
   await wait(10500);
   check("hidden popup renderer released after idle grace", panel.isDestroyed());
   app.emit("second-instance");
@@ -124,12 +127,25 @@ module.exports = async function ({ panel, BrowserWindow, app, tray, output, chec
   await go("companion");
   await js("document.getElementById('companion-add').click();document.getElementById('quick-quest-title').value='QA 임시 퀘스트';persistTrayUi()");
   await wait(100);
+  const quickSession = () => js("(async () => ({saved:await window.osHeroApi.getTraySession(),route:trayRoute,dialog:trayUi.dialog,quickQuest:trayUi.quickQuest,open:document.getElementById('companion-dialog')?.open,title:document.getElementById('quick-quest-title')?.value}))()");
+  const beforeHide = await quickSession();
+  fs.writeFileSync(path.join(output, "tray-quick-session-before-hide.json"), JSON.stringify(beforeHide, null, 2));
+  check("quick dialog snapshot is captured before hiding", beforeHide.saved.dialog === "quest" && beforeHide.saved.quickQuest === "QA 임시 퀘스트" && beforeHide.open);
+  panel.show();
+  check("quick-dialog idle test starts from a visible popup", panel.isVisible());
   app.emit("second-instance");
+  check("quick-dialog tray toggle hides popup before idle wait", !panel.isVisible());
+  await wait(100);
+  fs.writeFileSync(path.join(output, "tray-quick-session-hidden.json"), JSON.stringify(await quickSession(), null, 2));
   await wait(10500);
+  check("quick-dialog renderer destroyed before reopening", panel.isDestroyed());
   app.emit("second-instance");
   await wait(650);
   panel = BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('view=tray'));
-  check("quick quest dialog and unsaved title survive renderer teardown", await restored("document.getElementById('companion-dialog')?.open && document.getElementById('quick-quest-title')?.value==='QA 임시 퀘스트'"));
+  const quickRestored = await restored("document.getElementById('companion-dialog')?.open && document.getElementById('quick-quest-title')?.value==='QA 임시 퀘스트'");
+  fs.writeFileSync(path.join(output, "tray-quick-session-restored.json"), JSON.stringify(await quickSession(), null, 2));
+  if (!quickRestored) await capture(panel, "tray-quick-restore-failed.png");
+  check("quick quest dialog and unsaved title survive renderer teardown", quickRestored);
   await js("document.getElementById('dialog-close').click()");
   await wait(100);
   check("closing a child dialog keeps the shared popup open", panel.isVisible() && await js("!document.getElementById('companion-dialog').open"));

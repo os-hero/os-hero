@@ -24,7 +24,6 @@ const BACKGROUND_ITEMS = [
 function backgroundMessages(language) {
   return {
     "category.background": { ko: "배경", en: "Backgrounds", "zh-CN": "背景" }[language] || "Backgrounds",
-    "inventory.resetBackground": { ko: "초원으로", en: "Reset to meadow", "zh-CN": "恢复草原" }[language] || "Reset to meadow",
     ...Object.fromEntries(BACKGROUND_ITEMS.map((item) => [`item.${item.id}`, item.names[language] || item.name]))
   };
 }

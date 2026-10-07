@@ -39,21 +39,62 @@ test("legacy and invalid backgrounds default to meadow without changing existing
   assert.equal(next.hairColor, old.hairColor);
   assert.deepEqual(normalizeCharacter(next, "1.4.1"), next);
   assert.deepEqual(old, before);
-  for (const value of [null, "../settings.json", "iron_sword", {}, "unknown"]) {
+  for (const value of [undefined, "", 0, "../settings.json", "iron_sword", {}, "unknown"]) {
     assert.equal(normalizeCharacter({ equipped: { background: value } }).equipped.background, DEFAULT_BACKGROUND_ID);
   }
 });
 
-test("background replacement, reset and preview do not change any canonical Hero frame", () => {
+test("background replacement, removal and preview do not change any canonical Hero frame", () => {
   const base = equipItem(equipItem(defaultCharacter(), "long_hair"), "trail_sword");
   const original = structuredClone(base);
   for (const item of BACKGROUND_ITEMS) {
     const next = equipItem(base, item.id);
     assert.deepEqual({ ...next.equipped, background: base.equipped.background }, base.equipped);
     for (let f = 0; f < 4; f++) assert.deepEqual(renderCharacterBuffer(next, f, 1), renderCharacterBuffer(base, f, 1));
-    assert.equal(unequipSlot(next, "background").equipped.background, DEFAULT_BACKGROUND_ID);
+    assert.equal(unequipSlot(next, "background").equipped.background, null);
   }
   assert.deepEqual(base, original);
+});
+
+test("explicit no-background survives normalization, saves and reloads without resetting the meadow", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "oshero-no-background-"));
+  try {
+    const store = new AppStore(dir);
+    const hero = unequipSlot(equipItem(defaultCharacter("1.5.0"), "background_coast"), "background");
+    const original = structuredClone(hero);
+    assert.equal(hero.equipped.background, null);
+    assert.deepEqual(normalizeCharacter(hero, "1.5.0"), hero);
+    store.saveCharacter(hero);
+    assert.deepEqual(normalizeCharacter(store.loadCharacter(), "1.5.0"), hero);
+    assert.equal(equipItem(hero, DEFAULT_BACKGROUND_ID).equipped.background, DEFAULT_BACKGROUND_ID);
+    assert.deepEqual(unequipSlot(hero, "background"), hero);
+    assert.deepEqual(hero, original);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("transparent scenes retain original RGBA, 3:2 bounds, integer placement and all Retina blocks", () => {
+  let hero = { ...defaultCharacter(), hairColor: "#714D38" };
+  for (const id of ["princess_hair", "rune_hat", "rune_coat", "teal_cape", "field_book"]) hero = equipItem(hero, id);
+  hero = unequipSlot(hero, "background");
+  for (let frame = 0; frame < 4; frame++) {
+    const original = PNG.sync.read(renderCharacterBuffer(hero, frame, 1));
+    const scene = decode(renderSceneDataUrl(hero, frame));
+    assert.equal(scene.width, SCENE_WIDTH); assert.equal(scene.height, SCENE_HEIGHT);
+    assert.deepEqual(PNG.sync.read(renderTrayCharacterBuffer(hero, frame, { platform: "darwin" })).data, scene.data);
+    assert.ok(scene.data.some((v, i) => i % 4 === 3 && v === 0));
+    for (const scaleFactor of [1, 2]) {
+      const tray = PNG.sync.read(renderTrayCharacterBuffer(hero, frame, { platform: "darwin", scaleFactor }));
+      assert.equal(tray.width, SCENE_WIDTH * scaleFactor); assert.equal(tray.height, SCENE_HEIGHT * scaleFactor);
+      for (let y = 0; y < SCENE_HEIGHT; y++) for (let x = 0; x < SCENE_WIDTH; x++) {
+        const hx = x - HERO_X, hy = y - HERO_Y;
+        const rgba = hx >= 0 && hx < 24 && hy >= 0 && hy < 24 ? original.data.subarray((hy * 24 + hx) * 4, (hy * 24 + hx + 1) * 4) : Buffer.from([0, 0, 0, 0]);
+        for (let dy = 0; dy < scaleFactor; dy++) for (let dx = 0; dx < scaleFactor; dx++) {
+          const i = ((y * scaleFactor + dy) * tray.width + x * scaleFactor + dx) * 4;
+          assert.deepEqual(tray.data.subarray(i, i + 4), rgba, `${frame}/${scaleFactor}/${x},${y}`);
+        }
+      }
+    }
+  }
 });
 
 test("all scenes match the tray and preserve original pixels, static background and exact Retina blocks", () => {

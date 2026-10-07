@@ -25,7 +25,7 @@ const setTrayImage = Tray.prototype.setImage;
 Tray.prototype.setImage = function (image) { qaTrayImage = image; return setTrayImage.call(this, image); };
 const { defaultCharacter } = require("../src/shared/catalog");
 const { normalizeExpedition, dayKey } = require("../src/shared/expedition");
-const scenario = process.argv.includes("--backgrounds") ? "backgrounds" : process.argv.includes("--updates") ? "updates" : process.argv.includes("--tray-shell") ? "tray-shell" : process.argv.includes("--inventory-layout") ? "inventory-layout" : process.argv.includes("--wardrobe") ? "wardrobe" : process.argv.includes("--restart") ? "restart" : process.argv.includes("--completion") ? "completion" : "flow";
+const scenario = process.argv.includes("--unequip-restart") ? "unequip-restart" : process.argv.includes("--unequip") ? "unequip" : process.argv.includes("--backgrounds") ? "backgrounds" : process.argv.includes("--updates") ? "updates" : process.argv.includes("--tray-shell") ? "tray-shell" : process.argv.includes("--inventory-layout") ? "inventory-layout" : process.argv.includes("--wardrobe") ? "wardrobe" : process.argv.includes("--restart") ? "restart" : process.argv.includes("--completion") ? "completion" : "flow";
 const profile = process.env.OS_HERO_QA_PROFILE || fs.mkdtempSync(path.join(os.tmpdir(), "oshero-qa-"));
 const output = process.env.OS_HERO_QA_OUTPUT || path.resolve(__dirname, `../review-artifacts/${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })}`);
 fs.mkdirSync(output, { recursive: true });
@@ -40,6 +40,14 @@ BrowserWindow.prototype.setBounds = function (...args) {
   recordGeometry({ type: "setBounds", window: this.id, before: this.getBounds(), next: args[0], visible: this.isVisible(), caller: new Error().stack.split("\n").slice(2, 5) });
   return setBounds.apply(this, args);
 };
+for (const method of ["show", "hide", "destroy"]) {
+  const original = BrowserWindow.prototype[method];
+  BrowserWindow.prototype[method] = function (...args) {
+    recordGeometry({ type: method, window: this.id, visible: this.isVisible(), caller: new Error().stack.split("\n").slice(2, 5) });
+    return original.apply(this, args);
+  };
+}
+app.on("second-instance", () => recordGeometry({ type: "second-instance", windows: BrowserWindow.getAllWindows().map(window => ({ id: window.id, visible: window.isVisible() })) }));
 app.whenReady().then(() => require("electron").screen.on("display-metrics-changed", (_event, display, metrics) => recordGeometry({ type: "display-metrics-changed", metrics, workArea: display.workArea })));
 process.env.OS_HERO_USER_DATA_DIR = profile;
 const write = (name, data) => fs.writeFileSync(path.join(profile, name), JSON.stringify(data));
@@ -59,8 +67,8 @@ write("quests.json", { quests: [
 ] });
 const initialExpedition = normalizeExpedition({ day: dayKey(), progress: { expedition_star_hat: scenario === "completion" ? 75 * 60000 - 500 : 50 * 60000 } });
 write("expedition.json", initialExpedition);
-if (scenario === "restart") {
-  const saved = JSON.parse(fs.readFileSync(path.join(output, "restart-fixture.json")));
+if (["restart", "unequip-restart"].includes(scenario)) {
+  const saved = JSON.parse(fs.readFileSync(path.join(output, scenario === "restart" ? "restart-fixture.json" : "unequip-restart-fixture.json")));
   for (const [file, data] of Object.entries(saved)) write(file, data);
 }
 const errors = [];
@@ -106,7 +114,11 @@ app.whenReady().then(async () => {
     check("canonical icons match hero at same frame", await js("JSON.stringify(Array.from(document.querySelectorAll('[data-canonical-hero]')).map(img=>img.src).every(src=>src===document.querySelector('[data-canonical-hero]').src))") === "true");
     await capture(panel, `${scenario}-desktop.png`);
 
-    if (scenario === "backgrounds") {
+    if (scenario === "unequip") {
+      await require("./qa-unequip").run({ panel, BrowserWindow, app, profile, output, check, capture, wait, getTrayImage: () => qaTrayImage });
+    } else if (scenario === "unequip-restart") {
+      await require("./qa-unequip").restart({ panel, profile, output, check, capture, wait, getTrayImage: () => qaTrayImage });
+    } else if (scenario === "backgrounds") {
       await require("./qa-backgrounds")({ panel, BrowserWindow, profile, output, check, capture, wait, getTrayImage: () => qaTrayImage });
     } else if (scenario === "updates") {
       await require("./qa-updates").run({ panel, app, profile, output, check, capture, wait, qaUpdates });

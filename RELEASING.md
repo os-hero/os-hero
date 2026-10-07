@@ -37,10 +37,18 @@ OS_HERO_PAGES_DIR=/absolute/path/to/os-hero.github.io \
 npm run release:mac
 ```
 
-This validates credentials, tests, builds arm64 DMG/ZIP without automatic publishing, signs/notarizes/staples, verifies Gatekeeper/signatures and artifact checksums, creates a draft GitHub Release, uploads all assets, publishes it, then commits/pushes the Pages feed and registry. Published assets are never overwritten; a retry verifies an existing public release before advancing Pages. No Pages binary copies or unrelated archive deletions occur.
+This validates credentials, tests, builds arm64 DMG/ZIP without automatic publishing, signs/notarizes/staples, verifies Gatekeeper/signatures, byte-compares packaged source and runs isolated Electron QA directly from the signed ASAR. It then verifies artifact checksums, creates/publishes an immutable GitHub Release and commits/pushes the Pages feed and registry. Published assets are never overwritten. No Pages binary copies or unrelated archive deletions occur.
+
+After publication is verified against the local installer hashes, the command automatically runs `cleanup:local -- --apply`. It removes confirmed inactive OS Hero backup apps in `/Applications`, the transient build apps in this checkout and its primary checkout, and older installers/blockmaps in this checkout's `release/`. The installed `/Applications/OS Hero.app`, latest installers, running apps, mounted installers, user records/data backups, updater staging/cache and source/assets/reports remain untouched. Removed app copies are unregistered from Launch Services first. Rollback installers remain available as immutable GitHub Releases; do not accumulate `.app.backup-*` copies locally.
 
 5. Wait for the website's `pages build and deployment` workflow. Fetch the public feed with a cache-busting query; verify version, absolute URLs, sizes and SHA-512 against downloaded artifacts. Test detection/download from a signed older build and latest-version behavior from the new build. A push alone is not deployment success.
-6. Install the verified app locally after an app/data backup. Record release URL, source/tag, signature/notary result, feed verification, test results and residual risks in project deployment docs.
+6. Let the installed app apply the verified update through its existing guarded quit/restart policy. Do not force-restart a running user app or create another permanent app backup. A manual installation can use the verified ZIP/DMG when needed; preserve user data. Record release URL, source/tag, signature/notary result, feed verification, cleanup report, test results and residual risks in project deployment docs.
+
+## Local Artifact Retention
+
+`npm run cleanup:local` previews the exact candidates without deleting anything. `npm run cleanup:local -- --apply` requires the current stable version to be published and its immutable release metadata/hashes to match verified local installers. Every app's identifier/version/path and running state are rechecked. Symlink roots/bundles/installers, unfamiliar app IDs, newer copies and changed candidates are protected or rejected. Nothing scans/deletes Application Support, Downloads, Desktop, updater cache or arbitrary home directories.
+
+Packaged QA creates disposable user profiles, not extra `.app` bundles. Profiles are removed by the runner even on failure. Build outputs should not be retained after successful release QA/publication. Do not restore deleted local builds by rebuilding a published version; download and verify its immutable public ZIP/DMG if recovery is required. For a feed-only retry after cleanup, recover the exact signed bundle temporarily from that verified ZIP, run existing verification/deploy gates and clean it again.
 
 ## Failure and Recovery
 

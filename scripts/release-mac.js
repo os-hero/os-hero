@@ -1,6 +1,7 @@
 const path = require("path");
 const { execFileSync } = require("child_process");
 const root = path.resolve(__dirname, "..");
+const version = require("../package.json").version;
 const run = (cmd, args) => execFileSync(cmd, args, { cwd: root, stdio: "inherit" });
 
 if (process.platform !== "darwin" || process.arch !== "arm64") throw new Error("Current public release supports Apple Silicon macOS only");
@@ -14,5 +15,9 @@ const bundle = path.join(root, "release/mac-arm64/OS Hero.app");
 run("codesign", ["--verify", "--deep", "--strict", bundle]);
 run("xcrun", ["stapler", "validate", bundle]);
 run("spctl", ["--assess", "--type", "execute", "--verbose=2", bundle]);
+run(process.execPath, [path.join(__dirname, "qa-package.js")]);
 run("npm", ["run", "verify:release"]);
 run("npm", ["run", "deploy:updates"]);
+// Once immutable installers are verified and published, no local app archives are needed.
+run("npm", ["run", "cleanup:local", "--", "--apply"]);
+console.log(`Released ${version}; obsolete inactive local copies were cleaned. Review the cleanup report for any protected or in-use paths.`);

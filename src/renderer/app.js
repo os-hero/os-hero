@@ -14,7 +14,9 @@ let questDetailUnsubscribe = null;
 let expeditionUnsubscribe = null;
 let customizationDraft = null;
 let customizationHairDirty = false;
-const inventoryRoute = { tab: "hair", item: null, scroll: new Map() };
+const inventoryRoute = { tab: "hair", item: null, previewEquipped: false, scroll: new Map() };
+let inventoryActionPending = false;
+let inventoryError = "";
 const previewRequests = new WeakMap();
 const CHARACTER_PREVIEW_SCALE = 8;
 let questRoute = {
@@ -372,21 +374,19 @@ function renderCustomization() {
 }
 
 function renderInventory() {
-  let currentTab = inventoryRoute.tab;
-  let selectedItemId = inventoryRoute.item;
   const scrollTopByTab = inventoryRoute.scroll;
 
   const rememberScroll = () => {
     const itemList = appRoot.querySelector(".item-list");
     if (itemList) {
-      scrollTopByTab.set(currentTab, itemList.scrollTop);
+      scrollTopByTab.set(inventoryRoute.tab, itemList.scrollTop);
     }
   };
 
   const restoreScroll = () => {
     const itemList = appRoot.querySelector(".item-list");
     if (itemList) {
-      itemList.scrollTop = scrollTopByTab.get(currentTab) || 0;
+      itemList.scrollTop = scrollTopByTab.get(inventoryRoute.tab) || 0;
     }
   };
 
@@ -400,15 +400,55 @@ function renderInventory() {
       return text("inventory.equip");
     }
 
-    if (item.slot === "background") return text(item.isDefault ? "inventory.equipped" : "inventory.resetBackground");
-    return item.slot === "clothes" ? text("inventory.equipped") : text("inventory.unequip");
+    return text("inventory.equipped");
+  };
+
+  const chooseCategory = (tab, previewEquipped = false) => {
+    rememberScroll();
+    inventoryRoute.tab = tab;
+    inventoryRoute.item = null;
+    inventoryRoute.previewEquipped = previewEquipped;
+    render();
+    persistTrayUi();
+  };
+
+  const updateEquipment = async (payload) => {
+    if (inventoryActionPending) return;
+    rememberScroll();
+    const selection = { tab: inventoryRoute.tab, item: inventoryRoute.item, previewEquipped: inventoryRoute.previewEquipped };
+    inventoryError = "";
+    inventoryActionPending = true;
+    render();
+    let saved = false;
+    let selectionUnchanged = false;
+    try {
+      state = await api.updateEquipment(payload);
+      saved = true;
+      selectionUnchanged = Object.entries(selection).every(([key, value]) => inventoryRoute[key] === value);
+      if (selectionUnchanged) {
+        inventoryRoute.tab = payload.slot;
+        inventoryRoute.item = state.character.equipped[payload.slot];
+        inventoryRoute.previewEquipped = true;
+      }
+    } catch {
+      inventoryError = text("companion.error");
+    } finally {
+      inventoryActionPending = false;
+      if (currentView() === "inventory") {
+        renderCurrentView();
+        if (saved && selectionUnchanged) appRoot.querySelector(`[data-equipped-slot="${payload.slot}"]`)?.focus({ preventScroll: true });
+      }
+      paintCanonicalHero();
+      persistTrayUi();
+    }
   };
 
   const render = () => {
+    const currentTab = inventoryRoute.tab;
     const filteredItems = state.items.filter((item) => item.category === currentTab);
-    const selectedItem = filteredItems.find((item) => item.id === selectedItemId) || filteredItems[0] || null;
-    selectedItemId = selectedItem ? selectedItem.id : null;
-    inventoryRoute.tab = currentTab;
+    const candidateId = inventoryRoute.previewEquipped ? state.character.equipped[currentTab] : inventoryRoute.item;
+    const selectedItem = filteredItems.find((item) => item.id === candidateId) || (!inventoryRoute.previewEquipped ? filteredItems[0] : null) || null;
+    const selectedItemId = selectedItem ? selectedItem.id : null;
     inventoryRoute.item = selectedItemId;
     const previewCharacter = selectedItem
       ? {
@@ -420,7 +460,7 @@ function renderInventory() {
         }
       : state.character;
     appRoot.innerHTML = `
-      <div>
+      <div class="inventory-content" aria-busy="${inventoryActionPending}">
         <div class="inventory-header">
           <h1 class="window-title">${textHtml("window.inventory")}</h1>
           <div class="gold-balance" aria-label="${textHtml("inventory.goldAria")}">
@@ -428,6 +468,27 @@ function renderInventory() {
             <strong id="inventory-gold-value">${escapeHtml(formatNumber(currentGold()))}</strong>
           </div>
         </div>
+        <section class="equipment-bar" aria-labelledby="equipment-heading">
+          <h2 id="equipment-heading">${textHtml("inventory.equipment")}</h2>
+          <div class="equipment-slots">
+            ${state.itemCategories.map((category) => {
+              const item = state.items.find((entry) => entry.id === state.character.equipped[category.id]);
+              const name = item ? itemName(item) : text("inventory.emptySlot");
+              const label = text("inventory.openSlot", { category: categoryName(category.id), item: name });
+              const reset = category.id === "clothes";
+              const removable = Boolean(item && (!reset || !item.isDefault));
+              const actionLabel = reset ? text(item?.isDefault ? "inventory.defaultOutfit" : "inventory.resetOutfit") : text("inventory.clearSlot", { category: categoryName(category.id), item: name });
+              return `<div class="equipment-slot" data-equipment-slot="${category.id}">
+                <button class="equipment-slot-select" data-equipped-slot="${category.id}" data-empty="${!item}" ${currentTab === category.id ? 'aria-current="true"' : ""} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
+                  <span class="equipment-slot-art">${item ? `<img class="equipment-thumbnail ${category.id === "background" ? "landscape-thumbnail" : ""}" src="${state.itemThumbnails[item.id]}" alt="" />` : uiIcon("circle-slash")}</span>
+                  <span class="equipment-slot-label">${category.id === "background" ? textHtml("inventory.backgroundSlot") : escapeHtml(categoryName(category.id))}</span>
+                </button>
+                ${item ? `<button class="slot-remove icon-button" data-unequip-slot="${category.id}" title="${escapeHtml(actionLabel)}" aria-label="${escapeHtml(actionLabel)}" ${!removable || inventoryActionPending ? "disabled" : ""}>${uiIcon(reset ? "rotate-ccw" : "x")}</button>` : ""}
+              </div>`;
+            }).join("")}
+          </div>
+        </section>
+        <p class="inventory-error" role="status" ${inventoryError ? "" : "hidden"}>${escapeHtml(inventoryError)}</p>
         ${view === "tray" ? `<label class="inventory-category" for="inventory-category"><span>${textHtml("tray.category")}</span>
           <select id="inventory-category">${state.itemCategories.map((category) => `<option value="${category.id}" ${currentTab === category.id ? "selected" : ""}>${escapeHtml(categoryName(category.id))}</option>`).join("")}</select></label>` : ""}
         <div class="inventory-layout">
@@ -450,11 +511,11 @@ function renderInventory() {
                   return `
                     <button class="item-row ${item.id === selectedItemId ? "selected" : ""}" data-item="${item.id}">
                       <img class="item-thumbnail ${item.slot === "background" ? "landscape-thumbnail" : ""}" src="${state.itemThumbnails[item.id]}" alt="" />
-                      <span>
+                      <span class="item-information">
                         <h3>${escapeHtml(itemName(item))}</h3>
                         <p>${textHtml("inventory.slot", { category: categoryName(item.category) })}</p>
+                        <span class="badge ${equipped ? "equipped" : ""}">${textHtml(equipped ? "inventory.equipped" : "inventory.owned")}</span>
                       </span>
-                      <span class="badge ${equipped ? "equipped" : ""}">${textHtml(equipped ? "inventory.equipped" : "inventory.owned")}</span>
                     </button>
                   `;
                 })
@@ -465,11 +526,11 @@ function renderInventory() {
             ${renderPreviewPane(text("inventory.previewNote"))}
             <section class="form-pane">
               <div class="field-group">
-                <span class="field-title">${selectedItem ? escapeHtml(itemName(selectedItem)) : textHtml("inventory.noItem")}</span>
-                <p class="preview-note">${selectedItem ? textHtml("inventory.itemType", { category: categoryName(selectedItem.category) }) : ""}</p>
+                <span class="field-title">${selectedItem ? escapeHtml(itemName(selectedItem)) : textHtml("inventory.emptySlot")}</span>
+                <p class="preview-note">${textHtml("inventory.itemType", { category: categoryName(currentTab) })}</p>
               </div>
               <div class="action-row">
-                <button id="equip-button" class="primary-button" ${!selectedItem || (selectedItem.slot === "background" && selectedItem.isDefault && state.character.equipped.background === selectedItem.id) ? "disabled" : ""}>${escapeHtml(buttonLabel(selectedItem))}</button>
+                <button id="equip-button" class="primary-button" ${inventoryActionPending || !selectedItem || state.character.equipped[selectedItem.slot] === selectedItem.id ? "disabled" : ""}>${escapeHtml(buttonLabel(selectedItem))}</button>
               </div>
             </section>
           </div>
@@ -483,48 +544,39 @@ function renderInventory() {
     requestAnimationFrame(restoreScroll);
 
     appRoot.querySelectorAll("[data-tab]").forEach((button) => {
-      button.addEventListener("click", () => {
-        rememberScroll();
-        currentTab = button.dataset.tab;
-        const nextFiltered = state.items.filter((item) => item.category === currentTab);
-        selectedItemId = nextFiltered[0] ? nextFiltered[0].id : null;
-        render();
-      });
+      button.addEventListener("click", () => chooseCategory(button.dataset.tab));
     });
     const categorySelect = document.getElementById("inventory-category");
-    if (categorySelect) categorySelect.onchange = () => {
-      rememberScroll();
-      currentTab = categorySelect.value;
-      selectedItemId = null;
-      render();
-      persistTrayUi();
-    };
+    if (categorySelect) categorySelect.onchange = () => chooseCategory(categorySelect.value);
+
+    appRoot.querySelectorAll("[data-equipped-slot]").forEach((button) => {
+      button.onclick = () => chooseCategory(button.dataset.equippedSlot, true);
+    });
+    appRoot.querySelectorAll("[data-unequip-slot]").forEach((button) => {
+      button.onclick = () => {
+        const slot = button.dataset.unequipSlot;
+        const itemId = state.character.equipped[slot];
+        if (itemId) updateEquipment({ action: "unequip", itemId, slot });
+      };
+    });
 
     appRoot.querySelectorAll("[data-item]").forEach((button) => {
       button.addEventListener("click", () => {
         rememberScroll();
-        selectedItemId = button.dataset.item;
+        inventoryRoute.item = button.dataset.item;
+        inventoryRoute.previewEquipped = false;
         render();
+        persistTrayUi();
       });
     });
 
     const equipButton = document.getElementById("equip-button");
-    equipButton.addEventListener("click", async () => {
+    equipButton.addEventListener("click", () => {
       if (!selectedItem) {
         return;
       }
 
-      rememberScroll();
-      const isEquipped = state.character.equipped[selectedItem.slot] === selectedItem.id;
-      const action = isEquipped && selectedItem.slot !== "clothes" ? "unequip" : "equip";
-      equipButton.disabled = true;
-      try {
-        state = await api.updateEquipment({ action, itemId: selectedItem.id, slot: selectedItem.slot });
-        render();
-      } catch {
-        appRoot.querySelector(".preview-note").textContent = text("companion.error");
-        equipButton.disabled = false;
-      }
+      updateEquipment({ action: "equip", itemId: selectedItem.id, slot: selectedItem.slot });
     });
   };
 
