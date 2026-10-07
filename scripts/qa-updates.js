@@ -24,9 +24,17 @@ function prepare(mainPath) {
   return qa;
 }
 
-async function run({ panel, app, profile, check, capture, wait, qaUpdates: qa }) {
+async function run({ panel, app, profile, output, check, capture, wait, qaUpdates: qa }) {
   const js = code => panel.webContents.executeJavaScript(code, true);
   const go = route => js(`navigateTray(${JSON.stringify(route)})`);
+  const until = async code => {
+    const deadline = Date.now() + 2500;
+    do {
+      if (await js(code)) return true;
+      await wait(20);
+    } while (Date.now() < deadline);
+    return false;
+  };
   await go("settings");
   check("automatic download defaults ON for legacy settings", await js("document.getElementById('auto-download-updates').checked"));
   await js("window.osHeroApi.setAutoDownloadUpdates(false)");
@@ -67,16 +75,22 @@ async function run({ panel, app, profile, check, capture, wait, qaUpdates: qa })
   await go("customization");
   check("cancelled restart retains exact draft", await js("document.getElementById('body-color').value==='#ABCDEF'"));
   await js("document.getElementById('cancel-button').click()");
+  check("Hero cancellation completes before the next route", await until("!hasUnsavedTrayChanges() && document.getElementById('body-color')?.value===state.character.bodyColor"));
   await go("quests");
   await js("document.getElementById('new-quest-button').click();document.querySelector('[data-quest-type=adventure]').click();document.getElementById('quest-title').value='update draft';persistTrayUi()");
   await go("updates"); const dialogsBefore = qa.dialogs.length;
   await js("window.osHeroApi.quitApp()");
   check("normal quit also protects quest draft", qa.dialogs.length === dialogsBefore + 1 && !panel.isDestroyed());
   await go("quests"); await js("document.getElementById('cancel-quest-button').click()");
+  check("quest cancellation removes the pending draft before restart", await until("questRoute.mode==='list' && !hasUnsavedTrayChanges()"));
   await go("updates");
   fs.mkdirSync(path.join(profile,"expedition.json.tmp"));
-  await js("window.osHeroApi.restartForUpdate()");
-  check("failed progress save leaves app open and update retryable", qa.installs === 0 && await js("state.update.error==='update.saveFailed'"));
+  const beforeFailure = await js("({route:trayRoute,hasUnsavedChanges:hasUnsavedTrayChanges(),draft:customizationDraft,formValues:structuredClone(trayUi.formValues)})");
+  check("save-failure fixture starts with no unsaved drafts", beforeFailure.hasUnsavedChanges === false);
+  const failureResult = await js("window.osHeroApi.restartForUpdate()");
+  const afterFailure = await js("({route:trayRoute,hasUnsavedChanges:hasUnsavedTrayChanges(),draft:customizationDraft,formValues:structuredClone(trayUi.formValues),update:state.update})");
+  fs.writeFileSync(path.join(output, "qa-update-save-failure-snapshot.json"), JSON.stringify({ beforeFailure, failureResult, afterFailure, installs: qa.installs, dialogs: qa.dialogs }, null, 2));
+  check("failed progress save leaves app open and update retryable", qa.installs === 0 && failureResult.error === "update.saveFailed" && await until("state.update.error==='update.saveFailed'"));
   fs.rmdirSync(path.join(profile,"expedition.json.tmp"));
   await js("window.osHeroApi.expeditionAction({action:'start'})"); await wait(150);
   await js("window.osHeroApi.restartForUpdate()");
