@@ -6,7 +6,7 @@ const path = require("node:path");
 const { PNG } = require("pngjs");
 const { ITEMS, ITEM_CATEGORIES, defaultCharacter, normalizeCharacter, equipItem, unequipSlot } = require("../src/shared/catalog");
 const { HAIR_IDS, HAIR_COLORS, WARDROBE_ITEMS, wardrobeMessages } = require("../src/shared/wardrobe");
-const { WALK_POSES, renderCharacterLayers, renderCharacterBuffer, renderItemDataUrl } = require("../src/main/pixelRenderer");
+const { IDLE_POSES, renderCharacterLayers, renderCharacterBuffer, renderItemDataUrl } = require("../src/main/pixelRenderer");
 const { AppStore } = require("../src/main/store");
 
 test("legacy hair / glasses / bag migrate without changing stable IDs, and normalization is idempotent", () => {
@@ -45,15 +45,15 @@ test("slot replacement is independent and removes only the requested slot", () =
   assert.throws(() => unequipSlot(hero, "unknown"));
 });
 
-test("every item draws inside the native canvas and independent layers follow the same head bob", () => {
+test("every item stays inside the rig and follows its head or shoulder breathing anchor", () => {
   for (const item of ITEMS) {
     const hero = equipItem(defaultCharacter(), item.id);
     const poses = [0, 1, 2, 3].map((frame) => renderCharacterLayers(hero, frame));
     for (const layers of poses) for (const [name, grid] of Object.entries(layers)) assert.deepEqual(grid.clippedPixels, [], `${item.id}/${name}`);
-    for (const name of ["back", "hairBack", "hairFront", "head", "eyes", "face", "tool"]) {
-      for (let y = 0; y < 23; y++) for (let x = 0; x < 24; x++) {
-        assert.deepEqual(poses[0][name][y * 24 + x], poses[1][name][(y + 1) * 24 + x], `${item.id}/${name}/${x},${y}`);
-      }
+    for (const name of ["back", "straps", "hairBack", "hairFront", "head", "eyes", "face", "tool", "grip"]) for (let frame = 0; frame < 4; frame++) {
+      const anchor = ["back", "straps", "tool", "grip"].includes(name) ? "torsoBob" : "bob";
+      const shift = IDLE_POSES[frame][anchor] - IDLE_POSES[0][anchor];
+      for (let y = 1; y < 23; y++) for (let x = 0; x < 24; x++) assert.deepEqual(poses[0][name][y * 24 + x], poses[frame][name][(y + shift) * 24 + x], `${item.id}/${name}/${frame}/${x},${y}`);
     }
   }
 });
@@ -64,7 +64,7 @@ test("all hair x headwear x color x frame combinations preserve the central face
     const hero = { ...defaultCharacter(), hairColor, equipped: { hair, head, clothes: "rune_coat", back: "teal_cape", tool: "field_book" } };
     const layers = renderCharacterLayers(hero, frame);
     for (const [name, grid] of Object.entries(layers)) assert.equal(grid.clippedPixels.length, 0, `${hair}/${head}/${name}`);
-    const bob = WALK_POSES[frame].bob;
+    const bob = IDLE_POSES[frame].bob;
     for (let y = 6 + bob; y < 11 + bob; y++) for (let x = 8; x <= 15; x++) assert.equal(layers.hairFront[y * 24 + x][3], 0, `${hair} covers face`);
     for (let y = 11 + bob; y <= 12 + bob; y++) for (let x = 10; x <= 13; x++) assert.equal(layers.hairFront[y * 24 + x][3], 0, `${hair} covers chin`);
   }
@@ -81,14 +81,15 @@ test("every pair of slots retains both items and renders without clipping in all
   }
 });
 
-test("catalog thumbnails are nonempty, with opaque landscapes and transparent equipment", () => {
+test("catalog thumbnails are nonempty, with rounded landscape corners and transparent equipment", () => {
   for (const item of ITEMS) {
     const png = PNG.sync.read(Buffer.from(renderItemDataUrl(item.id).split(",")[1], "base64"));
     const alpha = png.data.filter((_, i) => i % 4 === 3);
     assert.ok(alpha.some((value) => value > 0), item.id);
     if (item.slot === "background") {
       assert.equal(png.width, 39); assert.equal(png.height, 26);
-      assert.ok(alpha.every((value) => value === 255), item.id);
+      assert.equal(alpha.filter(value => value === 0).length, 12, item.id);
+      assert.ok(alpha.every((value) => value === 0 || value === 255), item.id);
     } else assert.ok(alpha.some((value) => value === 0), item.id);
   }
   for (const lang of ["ko", "en", "zh-CN"]) for (const item of WARDROBE_ITEMS) assert.ok(wardrobeMessages(lang)[`item.${item.id}`]);

@@ -8,7 +8,7 @@ const api = {
   onTrayNavigate: (callback) => {
     const listener = (_event, target) => callback(target);
     ipcRenderer.on("tray:navigate", listener);
-    return () => ipcRenderer.removeListener("tray:navigate", listener);
+    return () => { ipcRenderer.removeListener("tray:navigate", listener); };
   },
   onCaptureTraySession: (callback) => {
     const listener = (_event, requestId) => {
@@ -16,13 +16,13 @@ const api = {
       if (requestId) ipcRenderer.send("tray:session-captured", requestId);
     };
     ipcRenderer.on("tray:capture-session", listener);
-    return () => ipcRenderer.removeListener("tray:capture-session", listener);
+    return () => { ipcRenderer.removeListener("tray:capture-session", listener); };
   },
   expeditionAction: (payload) => ipcRenderer.invoke("expedition:action", payload),
   onExpeditionState: (callback) => {
     const listener = (_event, expedition) => callback(expedition);
     ipcRenderer.on("expedition:changed", listener);
-    return () => ipcRenderer.removeListener("expedition:changed", listener);
+    return () => { ipcRenderer.removeListener("expedition:changed", listener); };
   },
   renderCharacter: (character, frameIndex, scale) =>
     ipcRenderer.invoke("character:render", character, frameIndex, scale),
@@ -50,22 +50,27 @@ const api = {
   onAppState: (callback) => {
     const listener = (_event, nextState) => callback(nextState);
     ipcRenderer.on("state:changed", listener);
-    return () => ipcRenderer.removeListener("state:changed", listener);
+    return () => { ipcRenderer.removeListener("state:changed", listener); };
+  },
+  onHeroMotion: (callback) => {
+    const listener = (_event, motion) => callback(motion);
+    ipcRenderer.on("hero:motion", listener);
+    return () => { ipcRenderer.removeListener("hero:motion", listener); };
   },
   onWalletState: (callback) => {
     const listener = (_event, nextWallet) => callback(nextWallet);
     ipcRenderer.on("wallet:changed", listener);
-    return () => ipcRenderer.removeListener("wallet:changed", listener);
+    return () => { ipcRenderer.removeListener("wallet:changed", listener); };
   },
   onUpdateState: (callback) => {
     const listener = (_event, updateState) => callback(updateState);
     ipcRenderer.on("update:state", listener);
-    return () => ipcRenderer.removeListener("update:state", listener);
+    return () => { ipcRenderer.removeListener("update:state", listener); };
   },
   onShowQuestDetail: (callback) => {
     const listener = (_event, questId) => callback(questId);
     ipcRenderer.on("quest:show-detail", listener);
-    return () => ipcRenderer.removeListener("quest:show-detail", listener);
+    return () => { ipcRenderer.removeListener("quest:show-detail", listener); };
   },
   closeWindow: () => ipcRenderer.invoke("window:close")
 };

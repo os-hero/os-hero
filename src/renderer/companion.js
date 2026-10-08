@@ -1,4 +1,3 @@
-let companionAnimation = null;
 let companionFrame = 0;
 let companionBusy = false;
 let companionToast = "";
@@ -38,22 +37,12 @@ function paintCanonicalHero() {
   document.querySelectorAll("[data-canonical-hero]").forEach((img) => {
     img.src = state.hero.frames[companionFrame];
     img.dataset.heroKey = state.hero.key;
+    img.dataset.heroFrame = companionFrame;
   });
 }
 
-function stopCompanionAnimation() {
-  clearInterval(companionAnimation);
-  companionAnimation = null;
-}
-
 function startCompanionAnimation() {
-  stopCompanionAnimation();
   paintCanonicalHero();
-  if (document.hidden) return;
-  companionAnimation = setInterval(() => {
-    companionFrame = (companionFrame + 1) % 4;
-    paintCanonicalHero();
-  }, 420);
 }
 
 function companionQuestRows() {
@@ -213,8 +202,4 @@ function openRewardPicker() {
   dialog.showModal();
 }
 
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden) stopCompanionAnimation();
-  else if (document.querySelector("[data-canonical-hero]")) startCompanionAnimation();
-});
-window.addEventListener("beforeunload", () => { stopCompanionAnimation(); clearTimeout(companionToastTimer); });
+window.addEventListener("beforeunload", () => clearTimeout(companionToastTimer));

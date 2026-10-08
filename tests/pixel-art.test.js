@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const { PNG } = require("pngjs");
 const { defaultCharacter, equipItem, ITEMS } = require("../src/shared/catalog");
 const { HAIR_IDS, HAIR_COLORS } = require("../src/shared/wardrobe");
-const { WALK_POSES, renderCharacterBuffer, renderCharacterLayers } = require("../src/main/pixelRenderer");
+const { IDLE_POSES, renderCharacterBuffer, renderCharacterLayers } = require("../src/main/pixelRenderer");
 const { addOuterOutline } = require("../src/main/pixelOutline");
 
 test("outer outline has crisp corners, no inner-hole halo and does not mutate the source", () => {
@@ -55,16 +55,17 @@ test("shadow-only pixels never generate an outline", () => {
   assert.deepEqual(addOuterOutline(shadow, new Uint8Array(25)).data, shadow.data);
 });
 
-test("each outfit has four distinct walking poses and alternating feet", () => {
+test("each outfit has four subtle idle poses with grounded feet", () => {
   for (const outfit of ITEMS.filter((item) => item.slot === "clothes")) {
     const hero = equipItem(defaultCharacter(), outfit.id);
     const frames = [0, 1, 2, 3].map((frame) => renderCharacterBuffer(hero, frame, 1).toString("base64"));
     assert.equal(new Set(frames).size, 4, outfit.id);
+    const poses = [0, 1, 2, 3].map(frame => renderCharacterLayers(hero, frame).clothes);
+    for (const pose of poses) for (const y of [21, 22]) for (const x of [7, 8, 9, 10, 14, 15, 16, 17]) {
+      assert.deepEqual(pose[y * 24 + x], poses[0][y * 24 + x], `${outfit.id} lifts foot at ${x},${y}`);
+    }
   }
-  const frames = [0, 2].map((frame) => renderCharacterLayers(defaultCharacter(), frame).clothes);
-  assert.notDeepEqual(frames[0].slice(21 * 24), frames[1].slice(21 * 24));
-  assert.equal(WALK_POSES[0].leftFoot, WALK_POSES[2].rightFoot);
-  assert.equal(WALK_POSES[0].rightFoot, WALK_POSES[2].leftFoot);
+  for (const pose of IDLE_POSES) assert.ok(pose.leftFoot === 0 && pose.rightFoot === 0 && pose.leftArm === 0 && pose.rightArm === 0);
 });
 
 test("all twelve hairstyles have distinct rendered silhouettes at the same color", () => {
@@ -80,8 +81,8 @@ test("all twelve hairstyles have distinct rendered silhouettes at the same color
 
 test("handheld items and finger pixels move together on every pose", () => {
   for (const arm of ["leftArm", "rightArm"]) for (let frame = 0; frame < 4; frame++) {
-    const a = WALK_POSES[frame], b = WALK_POSES[(frame + 1) % 4];
-    assert.ok(Math.abs(a.bob + a[arm] - b.bob - b[arm]) <= 1, `${arm} jumps between ${frame} and ${(frame + 1) % 4}`);
+    const a = IDLE_POSES[frame], b = IDLE_POSES[(frame + 1) % 4];
+    assert.ok(Math.abs(a.torsoBob + a[arm] - b.torsoBob - b[arm]) <= 1, `${arm} jumps between ${frame} and ${(frame + 1) % 4}`);
   }
   for (const item of ITEMS.filter((item) => item.slot === "tool" && !["wooden_shield", "kite_shield"].includes(item.id))) {
     for (let frame = 0; frame < 4; frame++) {
@@ -93,6 +94,13 @@ test("handheld items and finger pixels move together on every pose", () => {
           const nx = x + dx, ny = y + dy;
           return nx >= 0 && nx < 24 && ny >= 0 && ny < 24 && tool[ny * 24 + nx][3];
         })), `${item.id} grip detached in frame ${frame}`);
+        const body = renderCharacterLayers(equipItem(defaultCharacter(), item.id), frame).body;
+        assert.ok([-1, 0, 1].some(dy => [-2, -1, 0, 1, 2].some(dx => {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || nx >= 24 || ny < 0 || ny >= 24) return false;
+          const pixel = body[ny * 24 + nx];
+          return pixel[3] === 255 && !(pixel[0] === 31 && pixel[1] === 35 && pixel[2] === 40);
+        })), `${item.id} held grip is detached from the actual hand in frame ${frame}`);
       }
     }
   }

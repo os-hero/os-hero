@@ -23,7 +23,7 @@ async function run({ panel, BrowserWindow, app, profile, output, check, capture,
   await js("window.osHeroApi.saveCharacter({gender:'male',bodyColor:'#F1C27D',eyeType:'default',hairColor:'#714D38'})");
   await js("document.querySelector('[data-equipped-slot=head]').click()");
   await wait(150);
-  await js("clearInterval(previewTimer);previewFrame=0;updatePreview(document.getElementById('character-preview'),state.character)");
+  await js("previewTarget=null;previewFrame=0;updatePreview(document.getElementById('character-preview'),state.character)");
   check("desktop preview action fits completely inside the fixed popup", await js("document.getElementById('equip-button').getBoundingClientRect().bottom <= innerHeight - 8"));
   await capture(panel, "unequip-slots-desktop.png");
   await compare({ BrowserWindow, output, capture });

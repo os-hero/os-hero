@@ -1,0 +1,42 @@
+{
+  "version": "1.6.0",
+  "copy": {
+    "ko": {
+      "summary": "CPU에 반응하는 Idle 모션, 아이템 디테일과 둥근 픽셀 배경을 적용했습니다.",
+      "notes": [
+        "걷기 대신 발을 고정한 숨쉬기 모션을 사용합니다. 머리, 의상과 장비는 같은 프레임에 맞춰 움직이며 CPU 사용량이 높을수록 숨쉬기 주기가 빨라집니다.",
+        "메뉴바, 히어로 메뉴와 인벤토리 미리보기가 하나의 히어로와 애니메이션 시계를 공유합니다. 숨겨진 창에는 매 프레임 갱신을 보내지 않습니다.",
+        "기존 헤어와 아이템의 픽셀 디테일을 다듬고, 손과 장비의 연결 및 긴 의상의 발 가림을 개선했습니다. 보유 아이템과 선택한 외형은 유지됩니다.",
+        "배경의 네 모서리를 4px 기준으로 둥글게 처리했습니다. 메뉴바와 인벤토리에 동일하게 적용하며 캐릭터나 장비는 자르지 않습니다.",
+        "3:2 배경 크기는 유지하면서 Retina 메뉴바의 히어로만 약 4% 키웠습니다. 비 Retina 화면과 앱 미리보기의 원본 픽셀 크기는 유지됩니다.",
+        "투명 배경, 슬롯별 장착 해제, 퀘스트, 골드와 탐험 보상 정책은 그대로입니다. 기존 안정 업데이트 채널로 제공하며 강제로 재시작하지 않습니다."
+      ]
+    },
+    "en": {
+      "summary": "CPU-linked idle breathing, refined item details and rounded pixel backgrounds.",
+      "notes": [
+        "Grounded breathing replaces walking. Hair, outfits and equipment follow the same poses, with shorter breathing cycles at higher CPU usage.",
+        "The menu bar, Hero menu and inventory previews share one saved Hero and animation clock. Hidden windows receive no per-frame updates.",
+        "Existing hair and item pixels gain refined material details, improved hand-to-equipment alignment and outfit hems that keep the feet visible. Ownership and appearance selections are preserved.",
+        "Backgrounds use matching 4px pixel corners in the menu bar and inventory. Only the background is rounded; Hero and equipment pixels are never clipped.",
+        "The 3:2 background stays the same size while the Retina menu-bar Hero grows by about 4%. Non-Retina displays and app previews keep the original native pixel dimensions.",
+        "Transparent backgrounds, per-slot unequip, quests, gold and expedition rewards are unchanged. Delivered through the existing stable update channel without a forced restart."
+      ]
+    },
+    "zh": {
+      "summary": "新增随 CPU 变化的待机呼吸、精细物品像素和圆角像素背景。",
+      "notes": [
+        "以双脚固定的呼吸动作替代行走。头发、服装和装备遵循同一动画帧，CPU 使用率越高，呼吸周期越短。",
+        "菜单栏、英雄菜单和物品栏预览共用同一英雄与动画时钟。隐藏窗口不接收逐帧更新。",
+        "优化现有头发与物品的像素细节、手与装备的连接，以及长衣下摆对脚部的遮挡。保留已拥有的物品与外观选择。",
+        "背景四角采用 4px 像素圆角，菜单栏与物品栏保持一致。仅裁切背景，不裁切英雄或装备。",
+        "保持 3:2 背景尺寸，仅将 Retina 菜单栏中的英雄增大约 4%。非 Retina 屏幕与应用预览保留原始像素尺寸。",
+        "透明背景、按栏位卸下装备、任务、金币与探险奖励规则保持不变。通过现有稳定更新渠道提供，不会强制重启。"
+      ]
+    }
+  },
+  "installation": {
+    "en": "Apple Silicon macOS 12 or later. Signed 1.3.x and later clients use the existing stable update channel without forced restart. Old public ad-hoc 1.2.0 installations may need one manual DMG installation; keep your application data.",
+    "ko": "Apple Silicon, macOS 12 이상용입니다. 정식 서명된 1.3.x 이상은 기존 안정 채널로 업데이트하며 사용 중 강제 재시작하지 않습니다. 과거 임시 서명 1.2.0은 DMG로 한 번 직접 설치해야 할 수 있으며, 앱 데이터는 삭제하지 마세요."
+  }
+}

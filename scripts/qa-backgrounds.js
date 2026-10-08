@@ -43,6 +43,13 @@ module.exports = async function ({ panel, BrowserWindow, profile, check, capture
     const scenes = state.hero.sceneFrames.map(decode);
     const actual = PNG.sync.read(getTrayImage().toPNG({ scaleFactor: 1 }));
     check(`${item.theme}: real tray receives the same selected scene immediately`, actual.width === 39 && actual.height === 26 && scenes.some(frame => frame.data.equals(actual.data)));
+    for (const scale of [1, 2]) {
+      const native = PNG.sync.read(getTrayImage().toPNG({ scaleFactor: scale }));
+      const alpha = (x, y) => native.data[(y * native.width + x) * 4 + 3];
+      check(`${item.theme}: ${scale}x native tray has all four rounded background corners and unchanged bounds`, native.width === 39 * scale && native.height === 26 * scale && alpha(0, 0) === 0 && alpha(native.width - 1, 0) === 0 && alpha(0, native.height - 1) === 0 && alpha(native.width - 1, native.height - 1) === 0 && alpha(2 * scale, 0) === 255 && alpha(0, 2 * scale) === 255);
+    }
+    const thumbnail = decode(state.itemThumbnails[item.id]);
+    check(`${item.theme}: actual inventory thumbnail uses the same four pixel corners`, thumbnail.data[3] === 0 && thumbnail.data[(thumbnail.width - 1) * 4 + 3] === 0 && thumbnail.data[(thumbnail.height - 1) * thumbnail.width * 4 + 3] === 0 && thumbnail.data.at(-1) === 0);
     await wait(430);
     check(`${item.theme}: inventory saved preview uses canonical scene and fixed popup bounds`, await js(`document.getElementById('character-preview').dataset.heroKey === ${JSON.stringify(state.hero.key)}`) && JSON.stringify(panel.getBounds()) === bounds);
     for (let f = 0; f < 4; f++) {
@@ -77,7 +84,7 @@ module.exports = async function ({ panel, BrowserWindow, profile, check, capture
 async function renderBoard({ BrowserWindow, capture }) {
   let hero = { ...defaultCharacter(), hairColor: "#714D38" };
   for (const id of ["ponytail_hair", "travel_jacket", "teal_backpack", "travel_mug"]) hero = equipItem(hero, id);
-  const html = `<html lang="ko"><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;padding:36px;background:#fff;color:#20252c;font:14px -apple-system,sans-serif}h1{font-size:24px;margin:0 0 10px}p{color:#657181;margin:0 0 28px}main{display:grid;grid-template-columns:repeat(5,1fr);gap:24px}section{min-width:0}img{image-rendering:pixelated;image-rendering:crisp-edges}.large{display:block;width:234px;height:156px}h2{font-size:16px;margin:12px 0}.bar{display:flex;gap:12px;background:#22272c;padding:10px;width:234px}.bar img{width:39px;height:26px}.light{background:#f1f3f4;margin-top:6px}.bare{display:flex;gap:18px;margin-top:18px}.bare img{width:78px;height:52px}</style><h1>OS Hero · 픽셀 배경 컬렉션</h1><p>동일한 저장 히어로 · 캐릭터 24×24 원본 · 배경 39×26 (3:2) · 흰 테두리 없음</p><main>${BACKGROUND_ITEMS.map(item => {
+  const html = `<html lang="ko"><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;padding:36px;background:#fff;color:#20252c;font:14px -apple-system,sans-serif}h1{font-size:24px;margin:0 0 10px}p{color:#657181;margin:0 0 28px}main{display:grid;grid-template-columns:repeat(5,1fr);gap:24px}section{min-width:0}img{image-rendering:pixelated;image-rendering:crisp-edges}.large{display:block;width:234px;height:156px}h2{font-size:16px;margin:12px 0}.bar{display:flex;gap:12px;background:#22272c;padding:10px;width:234px}.bar img{width:39px;height:26px}.light{background:#f1f3f4;margin-top:6px}.bare{display:flex;gap:18px;margin-top:18px}.bare img{width:78px;height:52px}</style><h1>OS Hero · 픽셀 배경 컬렉션</h1><p>동일한 저장 히어로 · 캐릭터 24×24 원본 · 배경 39×26 (3:2) · 4px 픽셀 모서리 · 흰 테두리 없음</p><main>${BACKGROUND_ITEMS.map(item => {
     const character = equipItem(hero, item.id);
     const frames = [0,1,2,3].map(f => renderSceneDataUrl(character,f,1));
     return `<section><img class="large" src="${frames[0]}"><h2>${item.names.ko}</h2><div class="bar">${frames.map(src => `<img src="${src}">`).join("")}</div><div class="bar light">${frames.map(src => `<img src="${src}">`).join("")}</div><div class="bare"><img src="${frames[0]}"><img src="data:image/png;base64,${renderTrayCharacterBuffer(character,0,{platform:"darwin",scaleFactor:2}).toString("base64")}"></div></section>`;

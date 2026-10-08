@@ -12,13 +12,14 @@ const MAC_TRAY_SIZE = VIRTUAL_SIZE + TRAY_PADDING * 2;
 const OUTLINE = "#1F2328";
 const SHADOW = "#000000";
 const { sceneBuffer, backgroundDataUrl } = require("./pixelScene");
-const WALK_POSES = Object.freeze([
-  Object.freeze({ bob: 0, leftFoot: 0, rightFoot: -1, leftArm: 0, rightArm: -1 }),
-  Object.freeze({ bob: 1, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: -1 }),
-  Object.freeze({ bob: 0, leftFoot: -1, rightFoot: 0, leftArm: 0, rightArm: 1 }),
-  Object.freeze({ bob: 1, leftFoot: 0, rightFoot: 0, leftArm: -2, rightArm: -1 })
+const IDLE_POSES = Object.freeze([
+  Object.freeze({ bob: 1, torsoBob: 1, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 }),
+  Object.freeze({ bob: 1, torsoBob: 0, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 }),
+  Object.freeze({ bob: 0, torsoBob: 0, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 }),
+  Object.freeze({ bob: 0, torsoBob: 1, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 })
 ]);
 const LEFT_HAND_TOOLS = new Set(["wooden_shield", "kite_shield", "magic_staff", "wizard_wand", "spellbook", "torch"]);
+const GRIP_HEIGHTS = Object.freeze({ trail_sword: 2, steel_dagger: -2, long_bow: -2 });
 
 function parseHex(hex) {
   const normalized = hex.replace("#", "");
@@ -136,7 +137,7 @@ function drawBodyLayer(grid, character, bob, pose) {
   drawRect(grid, 13, neckY + 1, 1, 1, skinShade);
 
   for (const [x, offset] of [[4, pose.leftArm], [17, pose.rightArm]]) {
-    const armY = 12 + bob + offset;
+    const armY = 12 + pose.torsoBob + offset;
     drawRect(grid, x, armY + 1, 3, 6, OUTLINE);
     drawRect(grid, x + 1, armY + 4, 2, 2, skin);
     setPixel(grid, x + 1, armY + 6, skinShade);
@@ -172,11 +173,10 @@ function drawLegs(grid, bob, pantsColor, pose) {
   drawFeet(grid, pantsColor, pose);
 }
 
-function drawClothesLayer(grid, character, bob, frameIndex) {
+function drawClothesLayer(grid, character, bob, pose) {
   const style = getClothesStyle(character);
   const clothesId = getItemById(character.equipped.clothes)?.renderStyle || character.equipped.clothes;
   const torsoY = 12 + bob;
-  const pose = WALK_POSES[frameIndex];
   const shirtShade = darken(style.shirt, 0.16);
   const pantsShade = darken(style.pants, 0.18);
   const trim = style.trim || style.accent;
@@ -213,6 +213,7 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
       drawRect(grid, 14, torsoY + 6, 3, 3, style.shirt);
       drawRect(grid, 9, torsoY + 6, 1, 3, style.accent);
       drawRect(grid, 14, torsoY + 6, 1, 3, style.accent);
+      drawFeet(grid, style.pants, pose);
     }
     return;
   }
@@ -248,9 +249,9 @@ function drawClothesLayer(grid, character, bob, frameIndex) {
   }
 
   if (["wizard_robe", "royal_robe", "cleric_robes"].includes(clothesId)) {
-    drawRect(grid, 6, torsoY + 5, 12, 5, OUTLINE);
-    drawRect(grid, 7, torsoY + 5, 10, 4, style.shirt);
-    drawRect(grid, 8, torsoY + 9, 8, 1, style.pants);
+    drawRect(grid, 6, torsoY + 5, 12, 5 - bob, OUTLINE);
+    drawRect(grid, 7, torsoY + 5, 10, 4 - bob, style.shirt);
+    drawRect(grid, 8, 21, 8, 1, style.pants);
     drawRect(grid, 11, torsoY + 1, 2, 8, trim);
     drawPixelPattern(
       grid,
@@ -428,9 +429,12 @@ function drawHairstyle(grid, character, bob, item) {
   const rect = (x, dy, w, h, color) => drawRect(grid, x, y + dy, w, h, color);
   const points = (pixels, color) => drawPixelPattern(grid, pixels.map(([x, dy]) => [x, y + dy]), color);
   const lock = (x, dy, w, h) => {
-    rect(x, dy, w, h, OUTLINE);
+    rect(x + 1, dy, w - 2, 1, OUTLINE);
+    rect(x, dy + 1, w, h - 2, OUTLINE);
+    rect(x + 1, dy + h - 1, w - 2, 1, OUTLINE);
     rect(x + 1, dy + 1, w - 2, h - 2, primary);
-    rect(x + 1, dy + 2, 1, Math.max(1, h - 4), light);
+    rect(x + 1, dy + 2, 1, Math.min(3, h - 3), light);
+    if (h > 7) rect(x + 1, dy + h - 4, 1, 2, lighten(primary, 0.12));
     rect(x + w - 2, dy + 1, 1, h - 2, shade);
   };
   if (item.id === "mohawk_hair") {
@@ -571,7 +575,7 @@ function drawHeadLayer(grid, character, bob, item = getItemById(character.equipp
   }
 
   if (item.id === "expedition_star_hat") {
-    // Keep the entire new hat inside the shared 24px frame in every walking pose.
+    // Headwear always stays inside the shared 24px rig.
     drawRect(grid, 11, bob, 4, 1, OUTLINE);
     drawRect(grid, 9, 1 + bob, 7, 2, OUTLINE);
     drawRect(grid, 6, 3 + bob, 13, 2, OUTLINE);
@@ -1059,11 +1063,9 @@ function drawGripLayer(grid, character, bob) {
   const item = getItemById(character.equipped.tool);
   if (!item || ["wooden_shield", "kite_shield"].includes(item.id)) return;
   let x = LEFT_HAND_TOOLS.has(item.id) ? 4 : 20;
-  let y = 16 + bob;
+  const y = 16 + bob + (GRIP_HEIGHTS[item.id] || 0);
   if (["travel_mug", "field_book", "health_potion"].includes(item.id)) x = 18;
-  if (item.id === "trail_sword") y += 2;
-  if (item.id === "steel_dagger") { x = 19; y -= 2; }
-  if (item.id === "long_bow") { x = 20; y -= 2; }
+  if (item.id === "steel_dagger") x = 19;
   if (item.id === "spear") x = 21;
   if (item.id === "spellbook") x = 6;
   setPixel(grid, x - (LEFT_HAND_TOOLS.has(item.id) ? -1 : 1), y, OUTLINE);
@@ -1091,24 +1093,163 @@ function drawHairLayers(back, front, character, bob) {
   }
 }
 
+function inlay(grid, pixels, color) {
+  for (const [x, y] of pixels) {
+    if (x < 0 || x >= VIRTUAL_SIZE || y < 0 || y >= VIRTUAL_SIZE) throw new Error("Material detail outside rig");
+    const pixel = grid[y * VIRTUAL_SIZE + x];
+    if (pixel[3] === 255 && rgbToHex(pixel) !== OUTLINE) setPixel(grid, x, y, color);
+  }
+}
+
+function drawClothesDetails(grid, character, bob) {
+  const item = getItemById(character.equipped.clothes) || getItemById(DEFAULT_CLOTHES_ID);
+  const id = item.renderStyle || item.id;
+  const { shirt, pants, accent } = item.style;
+  const trim = item.style.trim || accent;
+  const y = 12 + bob;
+  const points = (pixels, color) => inlay(grid, pixels.map(([x, dy]) => [x, y + dy]).filter(([, py]) => py < 21), color);
+  const fold = darken(shirt, 0.28), light = lighten(shirt, 0.28);
+
+  // Small authored clusters describe construction, not noisy per-pixel texture.
+  if (["knight_armor", "village_armor", "space_suit"].includes(id)) {
+    points([[7, 1], [8, 1], [9, 1], [8, 2]], lighten(shirt, 0.42));
+    points([[15, 2], [16, 2], [16, 3], [14, 5], [15, 5]], fold);
+    points([[8, 4], [9, 4]], light);
+    points([[11, 5], [12, 5]], trim);
+    if (id === "space_suit") points([[10, 2], [11, 2], [14, 3]], lighten(accent, 0.38));
+  } else if (["wizard_robe", "royal_robe", "cleric_robes", "rune_coat"].includes(id)) {
+    points([[8, 2], [8, 3], [8, 6], [8, 7]], light);
+    points([[15, 3], [15, 4], [15, 6], [15, 7]], fold);
+    points([[10, 1], [13, 1]], trim);
+    points([[11, 3], [12, 3]], lighten(trim, 0.25));
+    points([[9, 8], [10, 8], [13, 8], [14, 8]], darken(shirt, 0.12));
+  } else if (id === "princess_dress") {
+    points([[9, 1], [14, 1]], accent);
+    points([[8, 6], [8, 7], [9, 8]], light);
+    points([[15, 6], [15, 7], [14, 8]], fold);
+    points([[11, 4], [12, 4]], trim);
+  } else if (id === "blue_overalls") {
+    points([[8, 2], [15, 2]], accent);
+    points([[10, 4], [11, 4]], lighten(pants, 0.3));
+    points([[12, 5], [13, 5], [14, 5]], darken(pants, 0.25));
+  } else if (id === "dragon_suit") {
+    points([[8, 1], [9, 2]], light);
+    points([[15, 3], [16, 4]], fold);
+    points([[10, 2], [13, 4]], lighten(accent, 0.22));
+  } else if (id === "barbarian_armor") {
+    points([[8, 1], [9, 1]], lighten(accent, 0.25));
+    points([[7, 3], [8, 3], [15, 5], [16, 5]], fold);
+    points([[9, 4], [14, 4]], lighten(trim, 0.3));
+  } else if (id === "travel_jacket" || id === "pirate_coat") {
+    points([[8, 2], [9, 2], [14, 2], [15, 2]], fold);
+    points([[8, 3], [14, 3]], light);
+    points([[9, 4], [14, 4]], trim);
+    points([[11, 1], [12, 2]], lighten(trim, 0.22));
+  } else {
+    points([[8, 1], [9, 1], [8, 2]], light);
+    points([[15, 2], [16, 3], [15, 5]], fold);
+    points([[11, 4], [12, 4]], lighten(trim, 0.25));
+    if (["green_tunic", "ranger_hoodie", "rogue_cloak", "ninja_suit"].includes(id)) points([[9, 3], [14, 3]], darken(shirt, 0.12));
+  }
+}
+
+function drawItemDetails(grid, item, bob) {
+  if (!item || !["head", "face", "back", "tool"].includes(item.slot)) return;
+  const { primary, accent = primary } = item.style;
+  const light = lighten(primary, 0.34), shade = darken(primary, 0.3);
+  const points = (pixels, color) => inlay(grid, pixels.map(([x, y]) => [x, y + bob]), color);
+  if (item.slot === "head") {
+    if (["red_cap", "travel_cap", "pirate_hat"].includes(item.id)) {
+      points([[8, 1], [9, 1], [7, 2]], light);
+      points([[16, 2], [16, 3], [18, 4]], shade);
+      points([[11, 2]], lighten(accent, 0.24));
+    } else if (["wizard_hat", "rune_hat", "expedition_star_hat"].includes(item.id)) {
+      points([[12, 1], [11, 2]], light);
+      points([[15, 2], [16, 3]], shade);
+      points([[7, 3], [8, 3]], lighten(accent, 0.18));
+    } else if (item.id === "gold_crown" || item.id === "silver_circlet") {
+      points([[7, item.id === "gold_crown" ? 2 : 4], [8, item.id === "gold_crown" ? 2 : 4]], light);
+      points([[16, item.id === "gold_crown" ? 2 : 4]], shade);
+      points([[11, item.id === "gold_crown" ? 2 : 3]], lighten(accent, 0.35));
+    } else {
+      points([[7, 3], [8, 3], [7, 4]], light);
+      points([[16, 3], [17, 4], [17, 6]], shade);
+      if (item.id !== "ninja_hood") points([[10, 3], [11, 3]], lighten(accent, 0.22));
+    }
+  } else if (item.slot === "face") {
+    if (item.id === "forehead_goggles") {
+      points([[9, 3], [14, 3]], light);
+      points([[9, 4], [14, 4]], lighten(accent, 0.34));
+    } else {
+      points([[8, 6], [9, 6], [14, 6]], light);
+      points([[11, 8], [17, 8]], shade);
+    }
+  } else if (item.slot === "back") {
+    if (item.id === "small_bag") {
+      points([[18, 16], [19, 16]], light);
+      points([[20, 18], [20, 19]], shade);
+      points([[19, 17]], lighten(accent, 0.3));
+    } else if (item.id === "teal_backpack") {
+      points([[3, 13], [4, 13], [3, 14]], light);
+      points([[5, 17], [6, 18]], shade);
+      points([[4, 16]], lighten(accent, 0.38));
+    } else {
+      points([[4, 16], [4, 17], [5, 18]], light);
+      points([[18, 17], [18, 18], [19, 19]], shade);
+      points([[5, 20], [6, 20]], lighten(accent, 0.2));
+    }
+  } else if (item.slot === "tool") {
+    const clusters = {
+      iron_sword: [[[20, 7], [20, 8], [21, 6]], [[20, 14]], [[19, 15]]],
+      expedition_sword: [[[20, 7], [20, 8], [21, 6]], [[20, 14]], [[19, 15]]],
+      trail_sword: [[[20, 11], [21, 11]], [[20, 15]], [[19, 17]]],
+      battle_axe: [[[17, 7], [18, 7], [17, 8]], [[20, 9]], [[21, 12]]],
+      steel_dagger: [[[22, 9], [21, 10]], [[20, 11]], [[18, 13]]],
+      war_hammer: [[[18, 7], [19, 7]], [[21, 8]], [[21, 13]]],
+      spear: [[[21, 4], [20, 5]], [[22, 5]], [[22, 14]]],
+      long_bow: [[[20, 7], [19, 9]], [[19, 13]], [[21, 8], [21, 9]]],
+      wooden_shield: [[[2, 14], [3, 14], [2, 15]], [[5, 18], [5, 19]], [[3, 16]]],
+      kite_shield: [[[2, 13], [3, 13], [2, 14]], [[5, 16], [4, 18]], [[3, 15]]],
+      magic_staff: [[[3, 6], [4, 7]], [[4, 12], [4, 13]], [[3, 6]]],
+      wizard_wand: [[[4, 10], [4, 11]], [[4, 16]], [[4, 7]]],
+      torch: [[[4, 11], [4, 12]], [[4, 18]], [[4, 6], [3, 7]]],
+      spellbook: [[[2, 14], [3, 14]], [[6, 17]], [[5, 15], [6, 15]]],
+      field_book: [[[19, 14], [19, 15]], [[21, 18]], [[21, 15]]],
+      travel_mug: [[[19, 15], [19, 16]], [[20, 17]], [[19, 14]]],
+      health_potion: [[[19, 15], [19, 16]], [[21, 18]], [[20, 13]]]
+    }[item.id];
+    if (clusters) {
+      points(clusters[0], light);
+      points(clusters[1], shade);
+      points(clusters[2], lighten(accent, 0.3));
+    }
+  }
+}
+
 // All surfaces consume these same native layers and the same pose clock.
 function renderCharacterLayers(characterInput, frameIndex = 0) {
   const character = normalizeCharacter(characterInput, characterInput?.version || "1.2.0");
   const frame = Number.isInteger(frameIndex) ? ((frameIndex % 4) + 4) % 4 : 0;
-  const pose = WALK_POSES[frame];
+  const pose = { ...IDLE_POSES[frame], rightArm: GRIP_HEIGHTS[character.equipped.tool] || 0 };
   const bob = pose.bob;
+  const torsoBob = pose.torsoBob;
   const layers = Object.fromEntries(["shadow", "back", "hairBack", "body", "clothes", "straps", "hairFront", "head", "eyes", "face", "tool", "grip"].map((key) => [key, createGrid()]));
   drawRect(layers.shadow, 7, 23, 10, 1, SHADOW, 90);
-  drawBackLayer(layers.back, character, bob);
+  drawBackLayer(layers.back, character, torsoBob);
+  drawItemDetails(layers.back, getItemById(character.equipped.back), torsoBob);
   drawHairLayers(layers.hairBack, layers.hairFront, character, bob);
   drawBodyLayer(layers.body, character, bob, pose);
-  drawClothesLayer(layers.clothes, character, bob, frame);
-  drawStrapsLayer(layers.straps, character, bob);
+  drawClothesLayer(layers.clothes, character, torsoBob, pose);
+  drawClothesDetails(layers.clothes, character, torsoBob);
+  drawStrapsLayer(layers.straps, character, torsoBob);
   drawHeadLayer(layers.head, character, bob);
+  drawItemDetails(layers.head, getItemById(character.equipped.head), bob);
   drawEyeLayer(layers.eyes, character, bob);
   drawToolLayer(layers.face, character, bob, getItemById(character.equipped.face));
-  const toolBob = bob + (LEFT_HAND_TOOLS.has(character.equipped.tool) ? pose.leftArm : pose.rightArm);
+  drawItemDetails(layers.face, getItemById(character.equipped.face), bob);
+  const toolBob = torsoBob;
   drawToolLayer(layers.tool, character, toolBob);
+  drawItemDetails(layers.tool, getItemById(character.equipped.tool), toolBob);
   drawGripLayer(layers.grip, character, toolBob);
   return layers;
 }
@@ -1158,7 +1299,7 @@ function renderTrayCharacterBuffer(characterInput, frameIndex = 0, { platform = 
   const scale = scaleFactor === 2 ? 2 : 1;
   const grid = drawCharacterGrid(characterInput, frameIndex);
   if (platform !== "darwin") return gridToPngBuffer(grid, scale, TRAY_PADDING);
-  return sceneBuffer(grid, normalizeCharacter(characterInput).equipped.background, scale);
+  return sceneBuffer(grid, normalizeCharacter(characterInput).equipped.background, scale, { menuBar: true });
 }
 
 function renderSceneDataUrl(characterInput, frameIndex = 0, scale = 1) {
@@ -1177,10 +1318,14 @@ function renderItemDataUrl(itemId) {
   const character = normalizeCharacter({ equipped: { [item.slot]: item.id } }, "1.2.0");
   const grid = createGrid();
   if (["head", "hair"].includes(item.slot)) drawHeadLayer(grid, character, 0, item);
-  if (item.slot === "clothes") drawClothesLayer(grid, character, 0, 0);
+  if (item.slot === "clothes") {
+    drawClothesLayer(grid, character, 0, IDLE_POSES[0]);
+    drawClothesDetails(grid, character, 0);
+  }
   if (item.slot === "back") drawBackLayer(grid, character, 0);
   if (item.slot === "face") drawToolLayer(grid, character, 0, item);
   if (item.slot === "tool") drawToolLayer(grid, character, 0);
+  drawItemDetails(grid, item, 0);
   // Only standalone item thumbnails trim empty canvas. Hero frames never crop.
   const pixels = grid.map((rgba, index) => rgba[3] ? [index % VIRTUAL_SIZE, Math.floor(index / VIRTUAL_SIZE)] : null).filter(Boolean);
   const left = Math.min(...pixels.map(([x]) => x));
@@ -1200,7 +1345,7 @@ function renderItemDataUrl(itemId) {
 
 module.exports = {
   MAC_TRAY_SIZE,
-  WALK_POSES,
+  IDLE_POSES,
   TRAY_PADDING,
   VIRTUAL_SIZE,
   renderCharacterLayers,

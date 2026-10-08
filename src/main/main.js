@@ -240,7 +240,7 @@ function getHeroPresentation() {
       sceneFrames: [0, 1, 2, 3].map((frame) => renderSceneDataUrl(character, frame, 1))
     };
   }
-  return heroPresentation;
+  return { ...heroPresentation, motion: { ...(trayAnimator?.getMotion() || { kind: "idle", frame: 0, intervalMs: 1000, cycleMs: 4000 }), characterKey: key } };
 }
 
 const rewardThumbnails = Object.fromEntries(REWARDS.map(({ id }) => [id, renderItemDataUrl(id)]));
@@ -928,7 +928,12 @@ function createTray() {
     }
   });
 
-  trayAnimator = new TrayAnimator(tray, cpuMonitor);
+  trayAnimator = new TrayAnimator(tray, cpuMonitor, { onFrame(motion) {
+    const next = { ...motion, characterKey: heroPresentation?.key || JSON.stringify(character) };
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed() && window.isVisible() && !window.webContents.isDestroyed()) window.webContents.send("hero:motion", next);
+    }
+  } });
   trayAnimator.updateCharacter(character);
   trayAnimator.start();
 }

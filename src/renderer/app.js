@@ -5,8 +5,9 @@ document.body.classList.toggle("tray-window", view === "tray");
 document.documentElement.classList.toggle("inventory-window", view === "inventory");
 
 let state = null;
-let previewTimer = null;
+let previewTarget = null;
 let previewFrame = 0;
+let motionUnsubscribe = null;
 let updateUnsubscribe = null;
 let stateUnsubscribe = null;
 let walletUnsubscribe = null;
@@ -119,27 +120,31 @@ async function updatePreview(imgElement, character, scale = CHARACTER_PREVIEW_SC
   const request = (previewRequests.get(imgElement) || 0) + 1;
   previewRequests.set(imgElement, request);
   const canonical = JSON.stringify(character) === state.hero?.key;
-  const src = canonical ? state.hero.sceneFrames[previewFrame] : await api.renderScene(character, previewFrame, 1);
+  const frame = previewFrame;
+  const src = canonical ? state.hero.sceneFrames[frame] : await api.renderScene(character, frame, 1);
   if (imgElement.isConnected && previewRequests.get(imgElement) === request) {
     imgElement.src = src;
     imgElement.dataset.heroKey = canonical ? state.hero.key : "draft";
+    imgElement.dataset.heroFrame = frame;
   }
 }
 
 function startPreviewAnimation(imgElement, getCharacter, scale = CHARACTER_PREVIEW_SCALE) {
-  if (previewTimer) {
-    clearInterval(previewTimer);
-  }
-
-  const render = () => {
-    if (document.hidden) return;
-    previewFrame = (previewFrame + 1) % 4;
-    updatePreview(imgElement, getCharacter(), scale).catch(() => {});
-  };
-
-  // Paint once even during initial hidden load; later animation stays paused while hidden.
+  previewTarget = { imgElement, getCharacter, scale };
   updatePreview(imgElement, getCharacter(), scale).catch(() => {});
-  previewTimer = setInterval(render, 420);
+}
+
+function applyHeroMotion(motion) {
+  if (!motion || motion.characterKey !== state?.hero?.key || !Number.isInteger(motion.frame) || motion.frame < 0 || motion.frame > 3) return;
+  state.hero.motion = motion;
+  previewFrame = motion.frame;
+  companionFrame = motion.frame;
+  if (document.hidden) return;
+  paintCanonicalHero();
+  if (previewTarget?.imgElement.isConnected) {
+    const { imgElement, getCharacter, scale } = previewTarget;
+    updatePreview(imgElement, getCharacter(), scale).catch(() => {});
+  }
 }
 
 function renderPreviewPane(note) {
@@ -1395,8 +1400,7 @@ function renderTrayPanel() {
 
 function renderCurrentView() {
   document.documentElement.lang = state.settings.language;
-  if (previewTimer) clearInterval(previewTimer);
-  previewTimer = null;
+  previewTarget = null;
   if (view === "tray") ensureTrayShell();
   const route = currentView();
   if (route === "companion") renderTrayPanel();
@@ -1412,6 +1416,7 @@ function renderCurrentView() {
 
 async function main() {
   state = await api.getState();
+  applyHeroMotion(state.hero.motion);
   if (view === "tray") {
     restoreTraySession(await api.getTraySession());
     api.onTrayNavigate(({ route, questId }) => navigateTray(route, questId));
@@ -1423,12 +1428,14 @@ async function main() {
     const unchanged = JSON.stringify(state.character) === JSON.stringify(nextState.character) && state.settings.language === nextState.settings.language;
     captureTrayUi();
     state = nextState;
+    applyHeroMotion(state.hero.motion);
     paintCanonicalHero();
     if (currentView() === "customization" && unchanged) return;
     if (currentView() === "inventory" && unchanged) return;
     renderCurrentView();
   });
   updateUnsubscribe = api.onUpdateState((update) => refreshUpdatePanel(update));
+  motionUnsubscribe = api.onHeroMotion(applyHeroMotion);
 
   expeditionUnsubscribe = api.onExpeditionState((nextExpedition) => {
     state.expedition = nextExpedition;
@@ -1461,9 +1468,8 @@ async function main() {
 
 window.addEventListener("beforeunload", () => {
   if (expeditionUnsubscribe) expeditionUnsubscribe();
-  if (previewTimer) {
-    clearInterval(previewTimer);
-  }
+  previewTarget = null;
+  if (motionUnsubscribe) motionUnsubscribe();
 
   if (updateUnsubscribe) {
     updateUnsubscribe();
@@ -1480,6 +1486,10 @@ window.addEventListener("beforeunload", () => {
   if (questDetailUnsubscribe) {
     questDetailUnsubscribe();
   }
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && state) api.getState().then(next => applyHeroMotion(next.hero.motion)).catch(() => {});
 });
 
 main().catch((error) => {

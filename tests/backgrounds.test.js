@@ -7,10 +7,34 @@ const vm = require("vm");
 const { PNG } = require("pngjs");
 const { BACKGROUND_ITEMS, DEFAULT_BACKGROUND_ID, SCENE_WIDTH, SCENE_HEIGHT, HERO_X, HERO_Y, backgroundMessages } = require("../src/shared/backgrounds");
 const { ITEMS, ITEM_CATEGORIES, defaultCharacter, normalizeCharacter, equipItem, unequipSlot } = require("../src/shared/catalog");
-const { renderSceneDataUrl, renderCharacterBuffer, renderTrayCharacterBuffer } = require("../src/main/pixelRenderer");
+const { renderSceneDataUrl, renderCharacterBuffer, renderTrayCharacterBuffer, renderItemDataUrl } = require("../src/main/pixelRenderer");
+const { sceneBuffer } = require("../src/main/pixelScene");
 const { AppStore } = require("../src/main/store");
 const { paintBackground } = require("../scripts/generate-backgrounds");
 const decode = (url) => PNG.sync.read(Buffer.from(url.split(",")[1], "base64"));
+
+// The hard-edged circle of radius 4 removes these three pixels at each corner.
+function isRoundCutout(x, y) {
+  const edgeX = Math.min(x, 38 - x), edgeY = Math.min(y, 25 - y);
+  return edgeY === 0 && edgeX < 2 || edgeY === 1 && edgeX === 0;
+}
+
+function assertMenuPixels(tray, original, background, scale) {
+  const size = scale === 2 ? 50 : 24, left = scale === 2 ? 14 : 7, top = 1;
+  assert.equal(tray.width, 39 * scale); assert.equal(tray.height, 26 * scale);
+  for (let y = 0; y < tray.height; y++) for (let x = 0; x < tray.width; x++) {
+    const offset = (y * tray.width + x) * 4;
+    const bgOffset = (Math.floor(y / scale) * 39 + Math.floor(x / scale)) * 4;
+    let rgba = background && !isRoundCutout(Math.floor(x / scale), Math.floor(y / scale)) ? Array.from(background.data.subarray(bgOffset, bgOffset + 4)) : [0, 0, 0, 0];
+    if (x >= left && x < left + size && y >= top && y < top + size) {
+      const sx = Math.floor((x - left) / size * 24), sy = Math.floor((y - top) / size * 24);
+      const pixel = Array.from(original.data.subarray((sy * 24 + sx) * 4, (sy * 24 + sx + 1) * 4));
+      if (!rgba[3] || pixel[3] === 255) rgba = pixel;
+      else if (pixel[3]) rgba = pixel.slice(0, 3).map((value, channel) => Math.round(value * pixel[3] / 255 + rgba[channel] * (1 - pixel[3] / 255))).concat(255);
+    }
+    assert.deepEqual(Array.from(tray.data.subarray(offset, offset + 4)), rgba, `${scale}x/${x},${y}`);
+  }
+}
 
 test("ten original backgrounds have unique reproducible 3:2 opaque native PNG assets", () => {
   assert.equal(BACKGROUND_ITEMS.length, 10);
@@ -27,6 +51,48 @@ test("ten original backgrounds have unique reproducible 3:2 opaque native PNG as
   }
   assert.equal(unique.size, 10);
   assert.equal(ITEM_CATEGORIES.at(-1).id, "background");
+});
+
+test("all ten background thumbnails and scaled scenes share symmetric 4px pixel corners without changing their source", () => {
+  const emptyHero = Array.from({ length: 24 * 24 }, () => [0, 0, 0, 0]);
+  for (const item of BACKGROUND_ITEMS) {
+    const bytes = fs.readFileSync(path.resolve(__dirname, "../public", item.assetPath));
+    const background = PNG.sync.read(bytes);
+    const thumbnail = decode(renderItemDataUrl(item.id));
+    assert.equal(thumbnail.width, 39); assert.equal(thumbnail.height, 26);
+    let cutouts = 0;
+    for (const scale of [1, 2, 8]) {
+      const scene = PNG.sync.read(sceneBuffer(emptyHero, item.id, scale));
+      assert.equal(scene.width, 39 * scale); assert.equal(scene.height, 26 * scale);
+      for (let y = 0; y < scene.height; y++) for (let x = 0; x < scene.width; x++) {
+        const sx = Math.floor(x / scale), sy = Math.floor(y / scale), offset = (sy * 39 + sx) * 4;
+        const rgba = isRoundCutout(sx, sy) ? [0, 0, 0, 0] : Array.from(background.data.subarray(offset, offset + 4));
+        assert.deepEqual(Array.from(scene.data.subarray((y * scene.width + x) * 4, (y * scene.width + x + 1) * 4)), rgba, `${item.id}/${scale}/${x},${y}`);
+        if (scale === 1) {
+          assert.deepEqual(Array.from(thumbnail.data.subarray(offset, offset + 4)), rgba);
+          if (rgba[3] === 0) cutouts++;
+        }
+      }
+    }
+    assert.equal(cutouts, 12);
+    assert.deepEqual(fs.readFileSync(path.resolve(__dirname, "../public", item.assetPath)), bytes);
+  }
+});
+
+test("rounded scenes preserve foreground color and original shadow alpha when the background is removed", () => {
+  const grid = Array.from({ length: 24 * 24 }, () => [0, 0, 0, 0]);
+  grid[0] = [101, 102, 103, 90];
+  grid[1] = [201, 202, 203, 255];
+  const scene = PNG.sync.read(sceneBuffer(grid, DEFAULT_BACKGROUND_ID));
+  const shadow = (HERO_Y * 39 + HERO_X) * 4;
+  const bg = PNG.sync.read(fs.readFileSync(path.resolve(__dirname, "../public", BACKGROUND_ITEMS[0].assetPath)));
+  const expected = [0, 1, 2].map(channel => Math.round(grid[0][channel] * 90 / 255 + bg.data[shadow + channel] * (1 - 90 / 255))).concat(255);
+  assert.deepEqual(Array.from(scene.data.subarray(shadow, shadow + 4)), expected);
+  assert.deepEqual(Array.from(scene.data.subarray(shadow + 4, shadow + 8)), grid[1]);
+  assert.deepEqual(Array.from(scene.data.subarray(0, 4)), [0, 0, 0, 0]);
+  const transparent = PNG.sync.read(sceneBuffer(grid, null));
+  assert.deepEqual(Array.from(transparent.data.subarray(shadow, shadow + 4)), grid[0]);
+  assert.deepEqual(Array.from(transparent.data.subarray(shadow + 4, shadow + 8)), grid[1]);
 });
 
 test("legacy and invalid backgrounds default to meadow without changing existing equipment or data", () => {
@@ -72,7 +138,7 @@ test("explicit no-background survives normalization, saves and reloads without r
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test("transparent scenes retain original RGBA, 3:2 bounds, integer placement and all Retina blocks", () => {
+test("transparent scenes retain original RGBA and fixed bounds; Retina enlargement leaves a physical pixel margin", () => {
   let hero = { ...defaultCharacter(), hairColor: "#714D38" };
   for (const id of ["princess_hair", "rune_hat", "rune_coat", "teal_cape", "field_book"]) hero = equipItem(hero, id);
   hero = unequipSlot(hero, "background");
@@ -85,19 +151,14 @@ test("transparent scenes retain original RGBA, 3:2 bounds, integer placement and
     for (const scaleFactor of [1, 2]) {
       const tray = PNG.sync.read(renderTrayCharacterBuffer(hero, frame, { platform: "darwin", scaleFactor }));
       assert.equal(tray.width, SCENE_WIDTH * scaleFactor); assert.equal(tray.height, SCENE_HEIGHT * scaleFactor);
-      for (let y = 0; y < SCENE_HEIGHT; y++) for (let x = 0; x < SCENE_WIDTH; x++) {
-        const hx = x - HERO_X, hy = y - HERO_Y;
-        const rgba = hx >= 0 && hx < 24 && hy >= 0 && hy < 24 ? original.data.subarray((hy * 24 + hx) * 4, (hy * 24 + hx + 1) * 4) : Buffer.from([0, 0, 0, 0]);
-        for (let dy = 0; dy < scaleFactor; dy++) for (let dx = 0; dx < scaleFactor; dx++) {
-          const i = ((y * scaleFactor + dy) * tray.width + x * scaleFactor + dx) * 4;
-          assert.deepEqual(tray.data.subarray(i, i + 4), rgba, `${frame}/${scaleFactor}/${x},${y}`);
-        }
-      }
+      assertMenuPixels(tray, original, null, scaleFactor);
+      assert.ok(tray.data.subarray(0, tray.width * 4).every(value => value === 0));
+      assert.ok(tray.data.subarray((tray.height - 1) * tray.width * 4).every(value => value === 0));
     }
   }
 });
 
-test("all scenes match the tray and preserve original pixels, static background and exact Retina blocks", () => {
+test("all scenes match 1x tray pixels while Retina enlarges only the Hero, not the static background", () => {
   const base = equipItem(equipItem(equipItem(defaultCharacter(), "princess_hair"), "rune_coat"), "magic_staff");
   for (const item of BACKGROUND_ITEMS) {
     const hero = equipItem(base, item.id);
@@ -110,17 +171,14 @@ test("all scenes match the tray and preserve original pixels, static background 
       assert.equal(scene.width / scene.height, 1.5);
       assert.deepEqual(scene.data, tray.data);
       assert.equal(retina.width, 78); assert.equal(retina.height, 52);
+      assertMenuPixels(retina, original, background, 2);
       for (let y = 0; y < SCENE_HEIGHT; y++) for (let x = 0; x < SCENE_WIDTH; x++) {
         const i = (y * SCENE_WIDTH + x) * 4;
         const rgba = scene.data.subarray(i, i + 4);
-        for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
-          const r = ((y * 2 + dy) * retina.width + x * 2 + dx) * 4;
-          assert.deepEqual(retina.data.subarray(r, r + 4), rgba);
-        }
         const hx = x - HERO_X, hy = y - HERO_Y;
         const j = (hy * 24 + hx) * 4;
         if (hx < 0 || hx >= 24 || hy < 0 || hy >= 24 || !original.data[j + 3]) {
-          assert.deepEqual(rgba, background.data.subarray(i, i + 4), `${item.id}/${f}: unexpected halo or moving background`);
+          assert.deepEqual(Array.from(rgba), isRoundCutout(x, y) ? [0, 0, 0, 0] : Array.from(background.data.subarray(i, i + 4)), `${item.id}/${f}: unexpected halo or moving background`);
         } else if (original.data[j + 3] === 255) assert.deepEqual(rgba, original.data.subarray(j, j + 4));
       }
     }
@@ -173,7 +231,7 @@ test("missing or malformed packaged backgrounds fail softly and cache the fallba
     const emptyHero = Array.from({ length: 24 * 24 }, () => [0,0,0,0]);
     const first = PNG.sync.read(module.exports.sceneBuffer(emptyHero, "background_coast"));
     assert.equal(first.width, 39); assert.equal(first.height, 26);
-    assert.ok(first.data.every((v, i) => i % 4 !== 3 || v === 255));
+    for (let y = 0; y < 26; y++) for (let x = 0; x < 39; x++) assert.equal(first.data[(y * 39 + x) * 4 + 3], isRoundCutout(x, y) ? 0 : 255);
     assert.equal(reads, 2); assert.equal(warnings.length, 2);
     assert.deepEqual(PNG.sync.read(module.exports.sceneBuffer(emptyHero, "background_coast")).data, first.data);
     assert.equal(reads, 2); assert.equal(warnings.length, 2);

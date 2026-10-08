@@ -3,6 +3,7 @@ const path = require("path");
 const { PNG } = require("pngjs");
 const { SCENE_WIDTH, SCENE_HEIGHT, HERO_X, HERO_Y, DEFAULT_BACKGROUND_ID, BACKGROUND_ITEMS } = require("../shared/backgrounds");
 const backgrounds = new Map();
+const BACKGROUND_RADIUS = 4;
 
 function readBackground(item) {
   const png = PNG.sync.read(fs.readFileSync(path.join(__dirname, "../../public", item.assetPath)));
@@ -32,27 +33,39 @@ function getBackground(id) {
   return backgrounds.get(item.id);
 }
 
-function sceneBuffer(heroGrid, backgroundId, scale = 1) {
+function backgroundPixel(background, x, y) {
+  if (!background) return [0, 0, 0, 0];
+  // A native-grid mask keeps the same crisp 4px corners at every output scale.
+  const dx = Math.max(0, BACKGROUND_RADIUS - Math.min(x + 0.5, SCENE_WIDTH - x - 0.5));
+  const dy = Math.max(0, BACKGROUND_RADIUS - Math.min(y + 0.5, SCENE_HEIGHT - y - 0.5));
+  if (dx * dx + dy * dy > BACKGROUND_RADIUS * BACKGROUND_RADIUS) return [0, 0, 0, 0];
+  const offset = (y * SCENE_WIDTH + x) * 4;
+  return background.data.subarray(offset, offset + 4);
+}
+
+function sceneBuffer(heroGrid, backgroundId, scale = 1, { menuBar = false } = {}) {
   const background = backgroundId === null ? null : getBackground(backgroundId);
   const png = new PNG({ width: SCENE_WIDTH * scale, height: SCENE_HEIGHT * scale });
-  for (let y = 0; y < SCENE_HEIGHT; y++) for (let x = 0; x < SCENE_WIDTH; x++) {
-    const offset = (y * SCENE_WIDTH + x) * 4;
-    let rgba = background ? background.data.subarray(offset, offset + 4) : [0, 0, 0, 0];
-    const hx = x - HERO_X, hy = y - HERO_Y;
+  // Only the finished menu-bar composite grows. Individual layers never rescale.
+  const heroSize = menuBar && scale === 2 ? 50 : 24 * scale;
+  const originX = menuBar ? Math.floor((png.width - heroSize) / 2) : HERO_X * scale;
+  const originY = menuBar ? Math.floor((png.height - heroSize) / 2) : HERO_Y * scale;
+  for (let y = 0; y < png.height; y++) for (let x = 0; x < png.width; x++) {
+    let rgba = backgroundPixel(background, Math.floor(x / scale), Math.floor(y / scale));
+    const hx = Math.floor((x - originX) * 24 / heroSize), hy = Math.floor((y - originY) * 24 / heroSize);
     if (hx >= 0 && hx < 24 && hy >= 0 && hy < 24) {
       const hero = heroGrid[hy * 24 + hx];
-      if (!background || hero[3] === 255) rgba = hero;
+      if (!rgba[3] || hero[3] === 255) rgba = hero;
       else if (hero[3]) rgba = [0, 1, 2].map((channel) => Math.round(hero[channel] * hero[3] / 255 + rgba[channel] * (1 - hero[3] / 255))).concat(255);
     }
-    for (let sy = 0; sy < scale; sy++) for (let sx = 0; sx < scale; sx++) {
-      png.data.set(rgba, ((y * scale + sy) * png.width + x * scale + sx) * 4);
-    }
+    png.data.set(rgba, (y * png.width + x) * 4);
   }
   return PNG.sync.write(png);
 }
 
 function backgroundDataUrl(id) {
-  return `data:image/png;base64,${PNG.sync.write(getBackground(id)).toString("base64")}`;
+  const emptyHero = Array.from({ length: 24 * 24 }, () => [0, 0, 0, 0]);
+  return `data:image/png;base64,${sceneBuffer(emptyHero, id).toString("base64")}`;
 }
 
 module.exports = { sceneBuffer, backgroundDataUrl };

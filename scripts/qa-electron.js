@@ -25,7 +25,7 @@ const setTrayImage = Tray.prototype.setImage;
 Tray.prototype.setImage = function (image) { qaTrayImage = image; return setTrayImage.call(this, image); };
 const { defaultCharacter } = require("../src/shared/catalog");
 const { normalizeExpedition, dayKey } = require("../src/shared/expedition");
-const scenario = process.argv.includes("--unequip-restart") ? "unequip-restart" : process.argv.includes("--unequip") ? "unequip" : process.argv.includes("--backgrounds") ? "backgrounds" : process.argv.includes("--updates") ? "updates" : process.argv.includes("--tray-shell") ? "tray-shell" : process.argv.includes("--inventory-layout") ? "inventory-layout" : process.argv.includes("--wardrobe") ? "wardrobe" : process.argv.includes("--restart") ? "restart" : process.argv.includes("--completion") ? "completion" : "flow";
+const scenario = process.argv.includes("--idle") ? "idle" : process.argv.includes("--unequip-restart") ? "unequip-restart" : process.argv.includes("--unequip") ? "unequip" : process.argv.includes("--backgrounds") ? "backgrounds" : process.argv.includes("--updates") ? "updates" : process.argv.includes("--tray-shell") ? "tray-shell" : process.argv.includes("--inventory-layout") ? "inventory-layout" : process.argv.includes("--wardrobe") ? "wardrobe" : process.argv.includes("--restart") ? "restart" : process.argv.includes("--completion") ? "completion" : "flow";
 const profile = process.env.OS_HERO_QA_PROFILE || fs.mkdtempSync(path.join(os.tmpdir(), "oshero-qa-"));
 const output = process.env.OS_HERO_QA_OUTPUT || path.resolve(__dirname, `../review-artifacts/${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })}`);
 fs.mkdirSync(output, { recursive: true });
@@ -78,6 +78,7 @@ app.on("web-contents-created", (_event, contents) => {
   contents.on("render-process-gone", (_event, details) => errors.push(`renderer gone: ${details.reason}`));
 });
 const qaUpdates = scenario === "updates" ? require("./qa-updates").prepare(process.env.OS_HERO_QA_APP || path.resolve(__dirname, "../src/main/main.js")) : null;
+const qaIdle = scenario === "idle" ? require("./qa-idle").prepare(process.env.OS_HERO_QA_APP || path.resolve(__dirname, "../src/main/main.js")) : null;
 require(process.env.OS_HERO_QA_APP || "../src/main/main");
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const check = (name, value) => { assert.ok(value, name); checks.push(name); };
@@ -114,7 +115,9 @@ app.whenReady().then(async () => {
     check("canonical icons match hero at same frame", await js("JSON.stringify(Array.from(document.querySelectorAll('[data-canonical-hero]')).map(img=>img.src).every(src=>src===document.querySelector('[data-canonical-hero]').src))") === "true");
     await capture(panel, `${scenario}-desktop.png`);
 
-    if (scenario === "unequip") {
+    if (scenario === "idle") {
+      await require("./qa-idle").run({ panel, BrowserWindow, app, profile, output, check, capture, wait, getTrayImage: () => qaTrayImage, qaIdle });
+    } else if (scenario === "unequip") {
       await require("./qa-unequip").run({ panel, BrowserWindow, app, profile, output, check, capture, wait, getTrayImage: () => qaTrayImage });
     } else if (scenario === "unequip-restart") {
       await require("./qa-unequip").restart({ panel, profile, output, check, capture, wait, getTrayImage: () => qaTrayImage });
