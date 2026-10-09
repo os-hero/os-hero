@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const { IDLE_POSES } = require("../src/main/pixelRenderer");
 
 function fixture() {
   const timers = new Map(), images = [], events = [];
@@ -10,6 +11,7 @@ function fixture() {
   const module = { exports: {} };
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, "../src/main/trayAnimator.js"), "utf8"), {
     module, require(name) {
+      if (name === "./pixelRenderer") return { IDLE_POSES };
       assert.equal(name, "./trayImage");
       return { createTrayImage(character, frame) { created++; return `${character.id}/${frame}`; } };
     },
@@ -42,12 +44,33 @@ test("main clock caches art, follows live CPU and preserves phase during equipme
   f.animator.updateCharacter({ id: "new" });
   assert.equal(f.images.at(-1), "new/1"); assert.equal(f.timers.size, 1); assert.equal(f.created(), 8);
   f.cpu.percent = 90; f.advance();
-  assert.equal(f.images.at(-1), "new/2"); assert.equal([...f.timers.values()][0].ms, 400);
+  assert.equal(f.images.at(-1), "new/2"); assert.equal([...f.timers.values()][0].ms, 480);
   for (let count = 0; count < 30; count++) f.advance();
   assert.equal(f.created(), 8);
-  assert.ok(f.events.every(event => event.kind === "idle" && event.cycleMs === event.intervalMs * 4));
+  assert.ok(f.events.every(event => event.kind === "idle" && event.intervalMs === Math.round(event.cycleMs / 4 * IDLE_POSES[event.frame].duration)));
   assert.ok([...f.timers.values()].every(timer => timer.unrefed));
   f.animator.stop(); assert.equal(f.timers.size, 0);
+});
+
+test("rest and peak holds ease the breath without changing any CPU cycle length", () => {
+  assert.equal(IDLE_POSES.reduce((sum, pose) => sum + pose.duration, 0), 4);
+  for (const cpu of [0, 20, 45, 70, 95]) {
+    const f = fixture();
+    f.cpu.percent = cpu;
+    f.animator.updateCharacter({ id: "hero" });
+    f.animator.start();
+    const durations = [];
+    for (let frame = 0; frame < 4; frame++) {
+      const motion = f.animator.getMotion();
+      assert.equal(motion.frame, frame);
+      assert.equal([...f.timers.values()][0].ms, motion.intervalMs);
+      durations.push(motion.intervalMs);
+      f.advance();
+    }
+    assert.equal(durations.reduce((a, b) => a + b, 0), f.intervalForCpu(cpu) * 4);
+    assert.ok(durations[0] > durations[1] && durations[2] > durations[3]);
+    f.animator.stop();
+  }
 });
 
 test("starting without art re-arms once; stop and destroyed trays cannot leave active timers", () => {

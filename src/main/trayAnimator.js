@@ -1,4 +1,5 @@
 const { createTrayImage } = require("./trayImage");
+const { IDLE_POSES } = require("./pixelRenderer");
 
 function intervalForCpu(cpuPercent) {
   const cpu = Number.isFinite(cpuPercent) ? Math.max(0, Math.min(100, cpuPercent)) : 0;
@@ -31,8 +32,9 @@ class TrayAnimator {
   }
 
   getMotion() {
-    const intervalMs = intervalForCpu(this.cpuMonitor.percent);
-    return { kind: "idle", frame: this.currentFrame, intervalMs, cycleMs: intervalMs * 4 };
+    const baseIntervalMs = intervalForCpu(this.cpuMonitor.percent);
+    const intervalMs = Math.round(baseIntervalMs * IDLE_POSES[this.currentFrame].duration);
+    return { kind: "idle", frame: this.currentFrame, intervalMs, cycleMs: baseIntervalMs * 4 };
   }
 
   start() {

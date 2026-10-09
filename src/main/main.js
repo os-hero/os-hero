@@ -18,7 +18,7 @@ const {
 
 const { CpuMonitor } = require("./cpu");
 const { AppStore } = require("./store");
-const { renderCharacterDataUrl, renderSceneDataUrl, renderItemDataUrl } = require("./pixelRenderer");
+const { IDLE_POSES, renderCharacterDataUrl, renderSceneDataUrl, renderItemDataUrl } = require("./pixelRenderer");
 const { createTrayImage } = require("./trayImage");
 const { REWARDS, dayKey, normalizeExpedition, changeExpedition, advanceExpedition, publicExpedition } = require("../shared/expedition");
 const { companionMessages } = require("../shared/companionMessages");
@@ -240,7 +240,7 @@ function getHeroPresentation() {
       sceneFrames: [0, 1, 2, 3].map((frame) => renderSceneDataUrl(character, frame, 1))
     };
   }
-  return { ...heroPresentation, motion: { ...(trayAnimator?.getMotion() || { kind: "idle", frame: 0, intervalMs: 1000, cycleMs: 4000 }), characterKey: key } };
+  return { ...heroPresentation, motion: { ...(trayAnimator?.getMotion() || { kind: "idle", frame: 0, intervalMs: 1000 * IDLE_POSES[0].duration, cycleMs: 4000 }), characterKey: key } };
 }
 
 const rewardThumbnails = Object.fromEntries(REWARDS.map(({ id }) => [id, renderItemDataUrl(id)]));

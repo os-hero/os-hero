@@ -68,6 +68,44 @@ test("each outfit has four subtle idle poses with grounded feet", () => {
   for (const pose of IDLE_POSES) assert.ok(pose.leftFoot === 0 && pose.rightFoot === 0 && pose.leftArm === 0 && pose.rightArm === 0);
 });
 
+test("breathing keeps the neck attached and every outfit's waist and legs grounded", () => {
+  for (const pose of IDLE_POSES) assert.equal(pose.bob, pose.torsoBob, "head and shoulders cannot move in separate phases");
+  for (const outfit of ITEMS.filter(item => item.slot === "clothes")) {
+    const hero = equipItem(defaultCharacter(), outfit.id);
+    const frames = [0, 1, 2, 3].map(frame => renderCharacterLayers(hero, frame));
+    for (const layers of frames) {
+      assert.deepEqual(layers.shadow, frames[0].shadow, outfit.id);
+      for (let y = 18; y <= 22; y++) for (let x = 6; x <= 17; x++) {
+        assert.deepEqual(layers.clothes[y * 24 + x], frames[0].clothes[y * 24 + x], `${outfit.id} moves pelvis or leg at ${x},${y}`);
+      }
+    }
+    for (const [a, b] of [[0, 1], [2, 3]]) {
+      for (const name of Object.keys(frames[a]).filter(name => name !== "clothes")) {
+        assert.deepEqual(frames[a][name], frames[b][name], `${outfit.id}/${name} moves during chest-only transition`);
+      }
+      const chestY = 15 + IDLE_POSES[a].torsoBob;
+      let changes = 0;
+      for (let i = 0; i < 24 * 24; i++) {
+        assert.equal(frames[a].clothes[i][3], frames[b].clothes[i][3], "chest tween changes silhouette or alpha");
+        if (frames[a].clothes[i].some((channel, index) => channel !== frames[b].clothes[i][index])) {
+          const x = i % 24, y = Math.floor(i / 24);
+          assert.ok([9, 14].includes(x) && [chestY, chestY + 1].includes(y), `${outfit.id} tweens outside chest`);
+          changes++;
+        }
+      }
+      assert.ok(changes > 0 && changes <= 4, `${outfit.id} needs a bounded chest transition`);
+    }
+  }
+});
+
+test("chest transitions stay visible between backpack straps for every outfit", () => {
+  for (const outfit of ITEMS.filter(item => item.slot === "clothes")) {
+    const hero = equipItem(equipItem(defaultCharacter(), outfit.id), "teal_backpack");
+    const frames = [0, 1, 2, 3].map(frame => renderCharacterBuffer(hero, frame, 1).toString("base64"));
+    assert.equal(new Set(frames).size, 4, outfit.id);
+  }
+});
+
 test("all twelve hairstyles have distinct rendered silhouettes at the same color", () => {
   for (const hairColor of HAIR_COLORS) {
     const masks = HAIR_IDS.map((id) => {

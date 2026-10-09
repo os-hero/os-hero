@@ -52,6 +52,8 @@ Packaged QA creates disposable user profiles, not extra `.app` bundles. Profiles
 
 ## Failure and Recovery
 
+The 1.6.1 corrective Idle release synchronizes head/neck/shoulders while keeping waist/legs/feet grounded. Four interior chest pixels and 1.2/0.8/1.2/0.8 pose holds replace the staggered motion; full CPU-linked breath durations remain unchanged. There is no appearance/catalog/data migration, item-thumbnail change or scene/foreground resizing. Keep public 1.6.0 immutable, retain its before-art snapshot for signed-package review and use a higher corrective version for any future recovery.
+
 The 1.6.0 visual update changes the common four-frame motion to grounded CPU-linked Idle and refines existing equipment pixels without changing item IDs, ownership or user schemas. Every visible Hero consumes the cached main-process frame clock. The 39x26 background has matching 4px native-grid corners in UI and menu-bar representations; mask only the background before overlaying the full Hero. Retina enlarges only the finished Hero to 50x50 physical pixels inside the unchanged 78x52 scene. Keep explicit no-background transparency and original 1x dimensions.
 
 The 1.5.0 background slot is additive within character schema v2. Its first write keeps a private pre-background copy at `backups/pixel-backgrounds/character.json`. A previous six-slot app ignores the new slot while preserving the other equipment; never roll back quests, gold or expedition records to undo this visual feature. Backgrounds are bundled starter items, not new reward entitlements. Public recovery still requires a higher corrective version, not changing published 1.4.x or 1.5.0 bytes.

@@ -13,10 +13,10 @@ const OUTLINE = "#1F2328";
 const SHADOW = "#000000";
 const { sceneBuffer, backgroundDataUrl } = require("./pixelScene");
 const IDLE_POSES = Object.freeze([
-  Object.freeze({ bob: 1, torsoBob: 1, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 }),
-  Object.freeze({ bob: 1, torsoBob: 0, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 }),
-  Object.freeze({ bob: 0, torsoBob: 0, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 }),
-  Object.freeze({ bob: 0, torsoBob: 1, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 })
+  Object.freeze({ bob: 1, torsoBob: 1, chest: 0, duration: 1.2, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 }),
+  Object.freeze({ bob: 1, torsoBob: 1, chest: 1, duration: 0.8, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 }),
+  Object.freeze({ bob: 0, torsoBob: 0, chest: 1, duration: 1.2, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 }),
+  Object.freeze({ bob: 0, torsoBob: 0, chest: 0, duration: 0.8, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 })
 ]);
 const LEFT_HAND_TOOLS = new Set(["wooden_shield", "kite_shield", "magic_staff", "wizard_wand", "spellbook", "torch"]);
 const GRIP_HEIGHTS = Object.freeze({ trail_sword: 2, steel_dagger: -2, long_bow: -2 });
@@ -418,6 +418,30 @@ function drawClothesLayer(grid, character, bob, pose) {
   setPixel(grid, 8, torsoY + 2, shirtShade);
   setPixel(grid, 15, torsoY + 2, lighten(style.shirt, 0.12));
   drawLegs(grid, bob, pantsShade, pose);
+}
+
+function drawIdleClothesLayer(grid, character, pose) {
+  const resting = createGrid();
+  drawClothesLayer(resting, character, 1, pose);
+  drawClothesDetails(resting, character, 1);
+  grid.clippedPixels.push(...resting.clippedPixels);
+
+  // Lift shoulders together, extending the chest by one native row above a fixed waist.
+  const lift = 1 - pose.torsoBob;
+  for (let y = 0; y < VIRTUAL_SIZE; y++) for (let x = 0; x < VIRTUAL_SIZE; x++) {
+    const grounded = (y >= 18 && x >= 6 && x <= 17) || (y >= 17 && x >= 7 && x <= 16);
+    const sourceY = grounded ? y : y + lift;
+    if (sourceY < VIRTUAL_SIZE) grid[y * VIRTUAL_SIZE + x] = resting[sourceY * VIRTUAL_SIZE + x];
+  }
+
+  // A small chest crease leads the lift; never tween the face, silhouette or alpha.
+  if (pose.chest) for (const x of [9, 14]) for (const dy of [0, 1]) {
+    const y = 15 + pose.torsoBob + dy;
+    const pixel = grid[y * VIRTUAL_SIZE + x];
+    if (pixel[3] !== 255 || rgbToHex(pixel) === OUTLINE) continue;
+    const color = dy ? darken(rgbToHex(pixel), 0.08) : lighten(rgbToHex(pixel), 0.1);
+    setPixel(grid, x, y, color);
+  }
 }
 
 function drawHairstyle(grid, character, bob, item) {
@@ -1239,8 +1263,7 @@ function renderCharacterLayers(characterInput, frameIndex = 0) {
   drawItemDetails(layers.back, getItemById(character.equipped.back), torsoBob);
   drawHairLayers(layers.hairBack, layers.hairFront, character, bob);
   drawBodyLayer(layers.body, character, bob, pose);
-  drawClothesLayer(layers.clothes, character, torsoBob, pose);
-  drawClothesDetails(layers.clothes, character, torsoBob);
+  drawIdleClothesLayer(layers.clothes, character, pose);
   drawStrapsLayer(layers.straps, character, torsoBob);
   drawHeadLayer(layers.head, character, bob);
   drawItemDetails(layers.head, getItemById(character.equipped.head), bob);

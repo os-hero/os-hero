@@ -1,0 +1,36 @@
+{
+  "version": "1.6.1",
+  "copy": {
+    "ko": {
+      "summary": "머리와 몸이 자연스럽게 연결되는 Idle 숨쉬기 모션을 개선했습니다.",
+      "notes": [
+        "머리, 목과 어깨가 같은 프레임에서 함께 움직여 따로 내려가는 느낌을 줄였습니다. 허리, 다리와 발은 고정하고 가슴의 작은 픽셀 변화로 호흡을 표현합니다.",
+        "숨을 들이쉰 끝과 편안한 자세를 조금 더 오래 유지합니다. CPU 사용량에 따른 호흡 속도와 전체 호흡 주기는 그대로입니다.",
+        "헤어, 모자, 의상과 장비는 공통 애니메이션에 맞춰 움직입니다. 메뉴바, 히어로 메뉴와 인벤토리는 하나의 히어로와 애니메이션 시계를 공유합니다.",
+        "캐릭터 크기, 아이템 외형, 배경, 보유 아이템, 퀘스트, 골드와 탐험 기록은 유지됩니다. 기존 자동 업데이트 채널로 제공하며 사용 중 강제로 재시작하지 않습니다."
+      ]
+    },
+    "en": {
+      "summary": "More cohesive idle breathing with naturally connected head and body movement.",
+      "notes": [
+        "The head, neck and shoulders move together instead of dropping in separate phases. The waist, legs and feet stay grounded, with small chest-pixel changes suggesting each breath.",
+        "Rest and inhale-peak poses hold a little longer. CPU-linked breathing speed and the total breathing cycle remain unchanged.",
+        "Hair, hats, outfits and equipment follow the same animation. The menu bar, Hero menu and inventory share one Hero and one animation clock.",
+        "Hero size, item artwork, backgrounds, ownership, quests, gold and expedition records are preserved. Delivered through the existing automatic update channel without a forced restart."
+      ]
+    },
+    "zh": {
+      "summary": "优化待机呼吸，让头部与身体的动作衔接更自然。",
+      "notes": [
+        "头部、颈部与肩膀在同一帧一起移动，不再分阶段下沉。腰部、双腿与双脚保持固定，通过胸部少量像素变化表现呼吸。",
+        "放松姿势与吸气顶点停留更久。随 CPU 使用率变化的呼吸速度与完整呼吸周期保持不变。",
+        "头发、帽子、服装与装备遵循同一动画。菜单栏、英雄菜单与物品栏共用同一英雄与动画时钟。",
+        "英雄尺寸、物品像素、背景、已拥有的物品、任务、金币与探险记录均保留。通过现有自动更新渠道提供，不会强制重启。"
+      ]
+    }
+  },
+  "installation": {
+    "en": "Apple Silicon macOS 12 or later. Signed 1.3.x and later clients use the existing stable update channel without forced restart. Old public ad-hoc 1.2.0 installations may need one manual DMG installation; keep your application data.",
+    "ko": "Apple Silicon, macOS 12 이상용입니다. 정식 서명된 1.3.x 이상은 기존 안정 채널로 업데이트하며 사용 중 강제 재시작하지 않습니다. 과거 임시 서명 1.2.0은 DMG로 한 번 직접 설치해야 할 수 있으며, 앱 데이터는 삭제하지 마세요."
+  }
+}

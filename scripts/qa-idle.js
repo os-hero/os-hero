@@ -1,6 +1,6 @@
 const path = require("path");
 const { PNG } = require("pngjs");
-const { renderTrayCharacterBuffer } = require("../src/main/pixelRenderer");
+const { IDLE_POSES, renderTrayCharacterBuffer } = require("../src/main/pixelRenderer");
 const { renderReview } = require("./qa-idle-art");
 
 function prepare(mainPath) {
@@ -28,6 +28,12 @@ async function run({ panel, BrowserWindow, app, output, check, capture, wait, ge
     check(`CPU ${cpu}% reaches all visible Hero locations without separate renderer timers`, await until(() => js(`(() => {const frames=Array.from(document.querySelectorAll('[data-canonical-hero]'));return state.hero.motion.cycleMs===${cycleMs} && frames.length>1 && frames.every(img=>Number(img.dataset.heroFrame)===state.hero.motion.frame && img.src===state.hero.frames[state.hero.motion.frame]);})()`)));
   }
 
+  await js("window.__idleTicks=[];true");
+  await wait(5300);
+  const ticks = await js("window.__idleTicks");
+  check("native clock holds rest and inhale peak longer than chest transition frames", new Set(ticks.map(tick => tick.frame)).size === 4 && ticks.every(tick => tick.cycleMs === 4000 && tick.intervalMs === Math.round(1000 * IDLE_POSES[tick.frame].duration)));
+  check("real frame notifications respect the eased native timing, not a uniform renderer interval", ticks.length >= 4 && ticks.slice(1).every((tick, index) => tick.frame === (ticks[index].frame + 1) % 4 && tick.at - ticks[index].at >= ticks[index].intervalMs - 80 && tick.at - ticks[index].at <= ticks[index].intervalMs + 1200));
+
   for (const id of initial.items.filter(item => item.slot !== "background").map(item => item.id)) {
     await js(`window.osHeroApi.updateEquipment({action:'equip',itemId:${JSON.stringify(id)}})`);
     const state = await js("window.osHeroApi.getState()");
@@ -45,7 +51,7 @@ async function run({ panel, BrowserWindow, app, output, check, capture, wait, ge
   qaIdle.setCpu(95);
   await wait(1800);
   check("CPU breathing never saves or replaces an appearance draft", await js(`JSON.stringify(state.character)===${JSON.stringify(before)} && document.getElementById('body-color').value==='#FFE6BD' && document.getElementById('character-preview').dataset.heroKey==='draft'`));
-  check("draft uses the same head and shoulder pose clock", await until(async () => {
+  check("draft uses the same connected head and shoulder pose clock", await until(async () => {
     const snapshot = await js("({draft:customizationDraft,frame:Number(document.getElementById('character-preview').dataset.heroFrame),src:document.getElementById('character-preview').src})");
     return snapshot.src === await js(`window.osHeroApi.renderScene(${JSON.stringify(snapshot.draft)},${snapshot.frame},1)`);
   }));
