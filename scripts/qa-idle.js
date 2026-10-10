@@ -28,8 +28,14 @@ async function run({ panel, BrowserWindow, app, output, check, capture, wait, ge
     check(`CPU ${cpu}% reaches all visible Hero locations without separate renderer timers`, await until(() => js(`(() => {const frames=Array.from(document.querySelectorAll('[data-canonical-hero]'));return state.hero.motion.cycleMs===${cycleMs} && frames.length>1 && frames.every(img=>Number(img.dataset.heroFrame)===state.hero.motion.frame && img.src===state.hero.frames[state.hero.motion.frame]);})()`)));
   }
 
+  // State can report the sampled CPU before the previously scheduled native tick fires.
+  const settled = await until(() => js("window.__idleTicks.at(-1)?.cycleMs===4000"));
+  check("native clock enters the new low-CPU cycle before its timing is measured", settled);
   await js("window.__idleTicks=[];true");
-  await wait(5300);
+  for (let attempt = 0; attempt < 80; attempt++) {
+    if (await js("new Set(window.__idleTicks.map(tick=>tick.frame)).size===4")) break;
+    await wait(100);
+  }
   const ticks = await js("window.__idleTicks");
   check("native clock holds rest and inhale peak longer than chest transition frames", new Set(ticks.map(tick => tick.frame)).size === 4 && ticks.every(tick => tick.cycleMs === 4000 && tick.intervalMs === Math.round(1000 * IDLE_POSES[tick.frame].duration)));
   check("real frame notifications respect the eased native timing, not a uniform renderer interval", ticks.length >= 4 && ticks.slice(1).every((tick, index) => tick.frame === (ticks[index].frame + 1) % 4 && tick.at - ticks[index].at >= ticks[index].intervalMs - 80 && tick.at - ticks[index].at <= ticks[index].intervalMs + 1200));
@@ -75,6 +81,7 @@ async function run({ panel, BrowserWindow, app, output, check, capture, wait, ge
   check("reopening preserves the isolated appearance draft", await js("navigateTray('customization');document.getElementById('body-color').value==='#FFE6BD'"));
   await js("window.__idleUnsubscribe()");
   await renderReview({ BrowserWindow, output, capture });
+  await require("./qa-pocket-buddy-art").renderReview({ BrowserWindow, output, capture });
 }
 
 module.exports = { prepare, run };

@@ -19,7 +19,7 @@ const IDLE_POSES = Object.freeze([
   Object.freeze({ bob: 0, torsoBob: 0, chest: 0, duration: 0.8, leftFoot: 0, rightFoot: 0, leftArm: 0, rightArm: 0 })
 ]);
 const LEFT_HAND_TOOLS = new Set(["wooden_shield", "kite_shield", "magic_staff", "wizard_wand", "spellbook", "torch"]);
-const GRIP_HEIGHTS = Object.freeze({ trail_sword: 2, steel_dagger: -2, long_bow: -2 });
+const GRIP_HEIGHTS = Object.freeze({ steel_dagger: -2, long_bow: -2 });
 
 function parseHex(hex) {
   const normalized = hex.replace("#", "");
@@ -100,7 +100,7 @@ function getClothesStyle(character) {
 
 function drawBodyLayer(grid, character, bob, pose) {
   const skin = character.bodyColor;
-  const skinShade = mixColor(skin, "#A85C4A", 0.18);
+  const skinShade = mixColor(skin, "#A85C4A", 0.12);
   const skinLight = lighten(skin, 0.12);
   const headY = 2 + bob;
 
@@ -116,19 +116,8 @@ function drawBodyLayer(grid, character, bob, pose) {
   drawRect(grid, 7, headY + 7, 10, 2, skin);
   drawRect(grid, 8, headY + 9, 8, 1, skin);
   drawRect(grid, 10, headY + 10, 4, 1, skin);
-  drawRect(grid, 16, headY + 3, 1, 4, skinShade);
-  drawRect(grid, 7, headY + 7, 1, 2, skinShade);
-  drawRect(grid, 16, headY + 7, 1, 2, skinShade);
-  drawRect(grid, 7, headY + 3, 2, 1, skinLight);
-  setPixel(grid, 12, headY + 7, skinShade);
-  drawPixelPattern(
-    grid,
-    [
-      [11, headY + 8],
-      [12, headY + 8]
-    ],
-    darken(skin, 0.32)
-  );
+  drawRect(grid, 17, headY + 3, 1, 4, skinShade);
+  drawRect(grid, 7, headY + 3, 3, 1, skinLight);
 
   const neckY = headY + 10;
   drawRect(grid, 10, neckY, 4, 3, OUTLINE);
@@ -155,9 +144,9 @@ function drawSleeves(grid, style, torsoY, pose) {
 
 function drawFeet(grid, pantsColor, pose) {
   for (const [x, lift] of [[6, pose.leftFoot], [13, pose.rightFoot]]) {
-    drawRect(grid, x + 1, 21 + lift, 4, 1, darken(pantsColor, 0.35));
+    drawRect(grid, x + 1, 21 + lift, 4, 1, darken(pantsColor, 0.2));
     drawRect(grid, x, 22 + lift, 5, 1, OUTLINE);
-    setPixel(grid, x + 1, 21 + lift, lighten(pantsColor, 0.2));
+    drawRect(grid, x + 1, 21 + lift, 2, 1, lighten(pantsColor, 0.18));
   }
 }
 
@@ -193,8 +182,10 @@ function drawClothesLayer(grid, character, bob, pose) {
 
   if (["travel_jacket", "rune_coat", "village_armor"].includes(clothesId)) {
     if (clothesId === "travel_jacket") {
-      drawRect(grid, 11, torsoY + 1, 2, 5, style.trim);
-      drawPixelPattern(grid, [[9, torsoY + 1], [14, torsoY + 1], [9, torsoY + 4], [14, torsoY + 4]], style.accent);
+      drawRect(grid, 10, torsoY + 1, 4, 2, style.trim);
+      drawRect(grid, 11, torsoY + 3, 2, 3, style.accent);
+      drawRect(grid, 8, torsoY + 4, 2, 1, darken(style.shirt, 0.2));
+      drawRect(grid, 14, torsoY + 4, 2, 1, darken(style.shirt, 0.2));
     } else if (clothesId === "rune_coat") {
       drawRect(grid, 8, torsoY + 1, 2, 5, style.accent);
       drawRect(grid, 14, torsoY + 1, 2, 5, style.accent);
@@ -446,9 +437,9 @@ function drawIdleClothesLayer(grid, character, pose) {
 
 function drawHairstyle(grid, character, bob, item) {
   const primary = character.hairColor || item.style.primary;
-  const shade = darken(primary, 0.32);
-  const light = lighten(primary, 0.28);
-  const accent = character.hairColor ? lighten(primary, 0.48) : item.style.accent;
+  const shade = darken(primary, 0.24);
+  const light = lighten(primary, 0.22);
+  const accent = character.hairColor ? lighten(primary, 0.32) : item.style.accent;
   const y = 2 + bob;
   const rect = (x, dy, w, h, color) => drawRect(grid, x, y + dy, w, h, color);
   const points = (pixels, color) => drawPixelPattern(grid, pixels.map(([x, dy]) => [x, y + dy]), color);
@@ -458,7 +449,6 @@ function drawHairstyle(grid, character, bob, item) {
     rect(x + 1, dy + h - 1, w - 2, 1, OUTLINE);
     rect(x + 1, dy + 1, w - 2, h - 2, primary);
     rect(x + 1, dy + 2, 1, Math.min(3, h - 3), light);
-    if (h > 7) rect(x + 1, dy + h - 4, 1, 2, lighten(primary, 0.12));
     rect(x + w - 2, dy + 1, 1, h - 2, shade);
   };
   if (item.id === "mohawk_hair") {
@@ -468,13 +458,15 @@ function drawHairstyle(grid, character, bob, item) {
     rect(17, 2, 2, 4, shade);
     return;
   }
-  rect(8, -1, 8, 1, OUTLINE);
-  rect(6, 0, 12, 1, OUTLINE);
-  rect(5, 1, 14, 3, OUTLINE);
-  rect(7, 0, 10, 1, primary);
-  rect(6, 1, 12, 2, primary);
-  rect(8, 0, 4, 1, light);
-  rect(7, 1, 3, 1, light);
+  rect(8, -2, 6, 1, OUTLINE);
+  rect(6, -1, 10, 1, OUTLINE);
+  rect(5, 0, 13, 1, OUTLINE);
+  rect(4, 1, 15, 3, OUTLINE);
+  rect(8, -1, 6, 1, primary);
+  rect(6, 0, 10, 1, primary);
+  rect(5, 1, 13, 2, primary);
+  rect(7, 0, 5, 1, light);
+  rect(6, 1, 4, 1, light);
   rect(15, 2, 3, 1, shade);
   switch (item.id) {
     case "long_hair":
@@ -545,7 +537,8 @@ function drawHairstyle(grid, character, bob, item) {
       break;
     default:
       lock(5, 2, 4, 5); lock(16, 2, 3, 4);
-      points([[8, 3], [10, 3], [11, 4], [15, 3]], primary);
+      rect(7, 3, 3, 1, primary);
+      points([[8, 4], [11, 3], [15, 3]], primary);
       break;
   }
 }
@@ -635,8 +628,9 @@ function drawHeadLayer(grid, character, bob, item = getItemById(character.equipp
     drawRect(grid, 5, headY + 1, 14, 7, OUTLINE);
     drawRect(grid, 7, headY - 1, 10, 2, primary);
     drawRect(grid, 6, headY + 1, 12, 6, primary);
-    drawRect(grid, 8, headY + 4, 8, 3, character.bodyColor);
-    drawRect(grid, 10, headY + 1, 4, 6, accent);
+    drawRect(grid, 7, headY + 4, 10, 5, character.bodyColor);
+    drawRect(grid, 10, headY + 1, 4, 3, accent);
+    drawRect(grid, 8, headY + 9, 8, 1, primary);
     drawPixelPattern(
       grid,
       [
@@ -667,7 +661,7 @@ function drawHeadLayer(grid, character, bob, item = getItemById(character.equipp
     );
     drawRect(grid, 8, headY - 1, 8, 2, primary);
     drawRect(grid, 6, headY + 1, 12, 5, primary);
-    drawRect(grid, 8, headY + 4, 8, 2, character.bodyColor);
+    drawRect(grid, 7, headY + 4, 10, 5, character.bodyColor);
     drawPixelPattern(
       grid,
       [
@@ -697,6 +691,13 @@ function drawHeadLayer(grid, character, bob, item = getItemById(character.equipp
 function drawEyeLayer(grid, character, bob) {
   const eyeType = getEyeType(character.eyeType).id;
   const eyeY = 7 + bob;
+  if (character.equipped.head !== "ninja_hood") {
+    const cheek = mixColor(character.bodyColor, "#E88C86", 0.4);
+    const mouth = mixColor(character.bodyColor, "#874C47", 0.55);
+    drawRect(grid, 7, 9 + bob, 2, 1, cheek);
+    drawRect(grid, 15, 9 + bob, 2, 1, cheek);
+    drawPixelPattern(grid, [[10, 9 + bob], [13, 9 + bob], [11, 10 + bob], [12, 10 + bob]], mouth);
+  }
 
   if (eyeType === "dot") {
     setPixel(grid, 9, eyeY, OUTLINE);
@@ -705,59 +706,33 @@ function drawEyeLayer(grid, character, bob) {
   }
 
   if (eyeType === "happy") {
-    drawPixelPattern(
-      grid,
-      [
-        [8, eyeY],
-        [9, eyeY + 1],
-        [10, eyeY + 1],
-        [13, eyeY + 1],
-        [14, eyeY + 1],
-        [15, eyeY]
-      ],
-      OUTLINE
-    );
+    drawPixelPattern(grid, [[8, eyeY + 1], [9, eyeY], [10, eyeY + 1], [13, eyeY + 1], [14, eyeY], [15, eyeY + 1]], OUTLINE);
     return;
   }
 
   if (eyeType === "sleepy") {
-    drawRect(grid, 8, eyeY, 4, 1, OUTLINE);
-    drawRect(grid, 13, eyeY, 4, 1, OUTLINE);
+    drawRect(grid, 8, eyeY + 1, 3, 1, OUTLINE);
+    drawRect(grid, 13, eyeY + 1, 3, 1, OUTLINE);
     return;
   }
 
   if (eyeType === "focused") {
-    drawPixelPattern(
-      grid,
-      [
-        [8, eyeY],
-        [9, eyeY],
-        [10, eyeY + 1],
-        [15, eyeY],
-        [14, eyeY],
-        [13, eyeY + 1],
-        [9, eyeY + 2],
-        [14, eyeY + 2]
-      ],
-      OUTLINE
-    );
+    drawPixelPattern(grid, [[8, eyeY], [9, eyeY + 1], [9, eyeY + 2], [15, eyeY], [14, eyeY + 1], [14, eyeY + 2]], OUTLINE);
     return;
   }
 
   if (eyeType === "bright") {
     drawRect(grid, 8, eyeY, 3, 3, OUTLINE);
     drawRect(grid, 13, eyeY, 3, 3, OUTLINE);
-    setPixel(grid, 9, eyeY, "#F8FBFF");
-    setPixel(grid, 14, eyeY, "#F8FBFF");
-    setPixel(grid, 10, eyeY + 2, "#6D3D24");
-    setPixel(grid, 15, eyeY + 2, "#6D3D24");
+    setPixel(grid, 8, eyeY, "#F8FBFF");
+    setPixel(grid, 13, eyeY, "#F8FBFF");
     return;
   }
 
-  drawRect(grid, 9, eyeY, 2, 3, OUTLINE);
+  drawRect(grid, 8, eyeY, 2, 3, OUTLINE);
   drawRect(grid, 14, eyeY, 2, 3, OUTLINE);
-  setPixel(grid, 10, eyeY, "#F8FBFF");
-  setPixel(grid, 15, eyeY, "#F8FBFF");
+  setPixel(grid, 8, eyeY, "#F8FBFF");
+  setPixel(grid, 14, eyeY, "#F8FBFF");
 }
 
 function drawToolLayer(grid, character, bob, item = getItemById(character.equipped.tool)) {
@@ -768,30 +743,30 @@ function drawToolLayer(grid, character, bob, item = getItemById(character.equipp
   const eyeY = 6 + bob;
 
   if (item.id === "travel_mug") {
-    drawRect(grid, 18, 14 + bob, 4, 5, OUTLINE);
-    drawRect(grid, 19, 15 + bob, 2, 3, item.style.primary);
-    drawRect(grid, 22, 15 + bob, 1, 3, item.style.primary);
-    setPixel(grid, 19, 14 + bob, item.style.accent);
-    setPixel(grid, 19, 15 + bob, lighten(item.style.primary, 0.35));
-    drawRect(grid, 20, 16 + bob, 1, 2, darken(item.style.primary, 0.22));
+    drawRect(grid, 18, 13 + bob, 4, 6, OUTLINE);
+    drawRect(grid, 19, 14 + bob, 2, 4, item.style.primary);
+    drawPixelPattern(grid, [[22, 14 + bob], [23, 14 + bob], [23, 15 + bob], [23, 16 + bob], [22, 16 + bob]], OUTLINE);
+    drawRect(grid, 19, 14 + bob, 2, 1, item.style.accent);
+    setPixel(grid, 19, 15 + bob, lighten(item.style.primary, 0.24));
     return;
   }
   if (item.id === "field_book") {
-    drawRect(grid, 18, 13 + bob, 5, 7, OUTLINE);
+    drawRect(grid, 18, 13 + bob, 6, 7, OUTLINE);
     drawRect(grid, 19, 14 + bob, 3, 5, item.style.primary);
-    drawRect(grid, 19, 14 + bob, 1, 5, "#DDD9BF");
-    drawRect(grid, 21, 15 + bob, 1, 3, item.style.accent);
-    setPixel(grid, 20, 16 + bob, item.style.accent);
-    drawRect(grid, 20, 18 + bob, 2, 1, darken(item.style.primary, 0.28));
+    drawRect(grid, 22, 14 + bob, 1, 5, "#F4E6CB");
+    drawRect(grid, 20, 15 + bob, 1, 3, item.style.accent);
+    drawRect(grid, 19, 16 + bob, 3, 1, item.style.accent);
     return;
   }
   if (item.id === "trail_sword") {
-    drawRect(grid, 20, 10 + bob, 2, 8, OUTLINE);
-    setPixel(grid, 20, 9 + bob, OUTLINE);
-    drawRect(grid, 20, 11 + bob, 1, 6, item.style.primary);
-    drawRect(grid, 21, 11 + bob, 1, 5, lighten(item.style.primary, 0.3));
-    drawRect(grid, 18, 17 + bob, 5, 1, item.style.accent);
-    drawRect(grid, 20, 18 + bob, 1, 3, "#775A3B");
+    drawRect(grid, 21, 7 + bob, 2, 1, OUTLINE);
+    drawRect(grid, 20, 8 + bob, 4, 7, OUTLINE);
+    drawRect(grid, 21, 8 + bob, 1, 6, lighten(item.style.primary, 0.22));
+    drawRect(grid, 22, 9 + bob, 1, 5, item.style.primary);
+    drawRect(grid, 18, 15 + bob, 6, 1, OUTLINE);
+    drawRect(grid, 19, 15 + bob, 4, 1, item.style.accent);
+    drawRect(grid, 20, 16 + bob, 3, 3, OUTLINE);
+    drawRect(grid, 21, 16 + bob, 1, 2, "#775A3B");
     return;
   }
   if (item.id === "square_glasses") {
@@ -870,12 +845,14 @@ function drawToolLayer(grid, character, bob, item = getItemById(character.equipp
   }
 
   if (item.id === "iron_sword" || item.id === "expedition_sword") {
-    drawRect(grid, 20, 6 + bob, 2, 11, OUTLINE);
-    drawRect(grid, 21, 5 + bob, 1, 1, OUTLINE);
-    drawRect(grid, 20, 7 + bob, 1, 9, item.style.primary);
-    drawRect(grid, 21, 6 + bob, 1, 10, lighten(item.style.primary, 0.16));
-    drawRect(grid, 18, 15 + bob, 5, 1, item.style.accent);
-    drawRect(grid, 19, 16 + bob, 3, 2, darken(item.style.accent, 0.18));
+    drawRect(grid, 21, 4 + bob, 2, 1, OUTLINE);
+    drawRect(grid, 20, 5 + bob, 4, 10, OUTLINE);
+    drawRect(grid, 21, 5 + bob, 1, 9, lighten(item.style.primary, 0.2));
+    drawRect(grid, 22, 6 + bob, 1, 8, item.style.primary);
+    drawRect(grid, 18, 15 + bob, 6, 1, OUTLINE);
+    drawRect(grid, 19, 15 + bob, 4, 1, item.style.accent);
+    drawRect(grid, 20, 16 + bob, 3, 3, OUTLINE);
+    drawRect(grid, 21, 16 + bob, 1, 2, darken(item.style.accent, 0.18));
   }
 
   if (item.id === "wooden_shield") {
@@ -889,10 +866,12 @@ function drawToolLayer(grid, character, bob, item = getItemById(character.equipp
   if (item.id === "magic_staff") {
     drawRect(grid, 3, 7 + bob, 2, 14, OUTLINE);
     drawRect(grid, 4, 7 + bob, 1, 14, item.style.primary);
-    drawRect(grid, 2, 5 + bob, 4, 4, OUTLINE);
-    drawRect(grid, 3, 6 + bob, 2, 2, item.style.accent);
-    setPixel(grid, 4, 6 + bob, lighten(item.style.accent, 0.25));
-    drawPixelPattern(grid, [[1, 6 + bob], [6, 6 + bob], [4, 4 + bob]], "#F5D547");
+    drawRect(grid, 1, 4 + bob, 4, 1, OUTLINE);
+    drawRect(grid, 0, 5 + bob, 6, 3, OUTLINE);
+    drawRect(grid, 1, 8 + bob, 4, 1, OUTLINE);
+    drawRect(grid, 1, 5 + bob, 4, 3, item.style.accent);
+    drawRect(grid, 1, 5 + bob, 2, 1, lighten(item.style.accent, 0.3));
+    drawRect(grid, 2, 9 + bob, 3, 1, "#F5D547");
   }
 
   if (item.id === "long_bow") {
@@ -920,31 +899,24 @@ function drawToolLayer(grid, character, bob, item = getItemById(character.equipp
   }
 
   if (item.id === "battle_axe") {
-    drawRect(grid, 20, 7 + bob, 2, 13, OUTLINE);
+    drawRect(grid, 20, 7 + bob, 3, 13, OUTLINE);
     drawRect(grid, 21, 8 + bob, 1, 12, item.style.accent);
-    drawRect(grid, 16, 6 + bob, 5, 5, OUTLINE);
-    drawRect(grid, 17, 7 + bob, 4, 3, item.style.primary);
-    setPixel(grid, 16, 8 + bob, item.style.primary);
-    setPixel(grid, 19, 7 + bob, lighten(item.style.primary, 0.18));
+    drawRect(grid, 19, 5 + bob, 4, 1, OUTLINE);
+    drawRect(grid, 18, 6 + bob, 6, 4, OUTLINE);
+    drawRect(grid, 19, 10 + bob, 4, 1, OUTLINE);
+    drawRect(grid, 19, 6 + bob, 2, 4, item.style.primary);
+    drawRect(grid, 22, 7 + bob, 1, 2, item.style.primary);
+    drawRect(grid, 19, 6 + bob, 1, 3, lighten(item.style.primary, 0.2));
   }
 
   if (item.id === "steel_dagger") {
-    drawPixelPattern(
-      grid,
-      [
-        [19, 11 + bob],
-        [20, 10 + bob],
-        [21, 9 + bob],
-        [22, 8 + bob],
-        [20, 12 + bob],
-        [21, 11 + bob],
-        [22, 10 + bob]
-      ],
-      OUTLINE
-    );
-    drawPixelPattern(grid, [[20, 11 + bob], [21, 10 + bob], [22, 9 + bob]], item.style.primary);
-    drawRect(grid, 17, 13 + bob, 4, 1, item.style.accent);
-    drawRect(grid, 18, 14 + bob, 2, 2, darken(item.style.accent, 0.18));
+    drawRect(grid, 21, 8 + bob, 2, 1, OUTLINE);
+    drawRect(grid, 20, 9 + bob, 4, 4, OUTLINE);
+    drawRect(grid, 21, 9 + bob, 1, 3, lighten(item.style.primary, 0.2));
+    drawRect(grid, 22, 10 + bob, 1, 2, item.style.primary);
+    drawRect(grid, 18, 13 + bob, 6, 1, item.style.accent);
+    drawRect(grid, 20, 14 + bob, 3, 3, OUTLINE);
+    drawRect(grid, 21, 14 + bob, 1, 2, darken(item.style.accent, 0.18));
   }
 
   if (item.id === "wizard_wand") {
@@ -967,9 +939,9 @@ function drawToolLayer(grid, character, bob, item = getItemById(character.equipp
   if (item.id === "spellbook") {
     drawRect(grid, 1, 13 + bob, 7, 6, OUTLINE);
     drawRect(grid, 2, 14 + bob, 5, 4, item.style.primary);
-    drawRect(grid, 4, 14 + bob, 1, 4, darken(item.style.primary, 0.22));
-    drawRect(grid, 2, 15 + bob, 2, 1, item.style.accent);
-    drawRect(grid, 5, 16 + bob, 2, 1, item.style.accent);
+    drawRect(grid, 2, 14 + bob, 1, 4, "#F4E6CB");
+    drawRect(grid, 4, 14 + bob, 1, 4, item.style.accent);
+    drawRect(grid, 3, 15 + bob, 3, 1, item.style.accent);
   }
 
   if (item.id === "kite_shield") {
@@ -1001,11 +973,11 @@ function drawToolLayer(grid, character, bob, item = getItemById(character.equipp
   }
 
   if (item.id === "war_hammer") {
-    drawRect(grid, 20, 9 + bob, 2, 11, OUTLINE);
+    drawRect(grid, 20, 9 + bob, 3, 11, OUTLINE);
     drawRect(grid, 21, 10 + bob, 1, 10, item.style.accent);
-    drawRect(grid, 17, 6 + bob, 6, 4, OUTLINE);
-    drawRect(grid, 18, 7 + bob, 4, 2, item.style.primary);
-    drawRect(grid, 18, 7 + bob, 1, 2, lighten(item.style.primary, 0.16));
+    drawRect(grid, 19, 6 + bob, 5, 4, OUTLINE);
+    drawRect(grid, 20, 7 + bob, 3, 2, item.style.primary);
+    drawRect(grid, 20, 7 + bob, 1, 2, lighten(item.style.primary, 0.2));
   }
 
   if (item.id === "health_potion") {
@@ -1086,10 +1058,9 @@ function drawStrapsLayer(grid, character, bob) {
 function drawGripLayer(grid, character, bob) {
   const item = getItemById(character.equipped.tool);
   if (!item || ["wooden_shield", "kite_shield"].includes(item.id)) return;
-  let x = LEFT_HAND_TOOLS.has(item.id) ? 4 : 20;
+  let x = LEFT_HAND_TOOLS.has(item.id) ? 4 : 21;
   const y = 16 + bob + (GRIP_HEIGHTS[item.id] || 0);
   if (["travel_mug", "field_book", "health_potion"].includes(item.id)) x = 18;
-  if (item.id === "steel_dagger") x = 19;
   if (item.id === "spear") x = 21;
   if (item.id === "spellbook") x = 6;
   setPixel(grid, x - (LEFT_HAND_TOOLS.has(item.id) ? -1 : 1), y, OUTLINE);
@@ -1112,7 +1083,7 @@ function drawHairLayers(back, front, character, bob) {
       // Fixed rig occlusion regions, not per-image bounds or automatic scaling.
       if (fit === "cap" && y < 4 + bob) continue;
       if (y >= 11 + bob || x < 6 || x > 17) back[index] = hair[index];
-      else if (!(x >= 8 && x <= 15 && y >= 6 + bob)) front[index] = hair[index];
+      else if (!(x >= 7 && x <= 16 && y >= 6 + bob)) front[index] = hair[index];
     }
   }
 }

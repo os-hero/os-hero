@@ -65,7 +65,7 @@ test("all hair x headwear x color x frame combinations preserve the central face
     const layers = renderCharacterLayers(hero, frame);
     for (const [name, grid] of Object.entries(layers)) assert.equal(grid.clippedPixels.length, 0, `${hair}/${head}/${name}`);
     const bob = IDLE_POSES[frame].bob;
-    for (let y = 6 + bob; y < 11 + bob; y++) for (let x = 8; x <= 15; x++) assert.equal(layers.hairFront[y * 24 + x][3], 0, `${hair} covers face`);
+    for (let y = 6 + bob; y < 11 + bob; y++) for (let x = 7; x <= 16; x++) assert.equal(layers.hairFront[y * 24 + x][3], 0, `${hair} covers face or cheek`);
     for (let y = 11 + bob; y <= 12 + bob; y++) for (let x = 10; x <= 13; x++) assert.equal(layers.hairFront[y * 24 + x][3], 0, `${hair} covers chin`);
   }
 });
