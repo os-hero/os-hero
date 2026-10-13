@@ -1,0 +1,36 @@
+{
+  "version": "1.6.3",
+  "copy": {
+    "ko": {
+      "summary": "트레이 팝업을 픽셀 RPG의 Guild UI로 새롭게 다듬었습니다.",
+      "notes": [
+        "상단 메뉴, 픽셀 로고, 장비 슬롯과 아이템 그리드를 일관된 Guild 스타일로 구성했습니다. 읽기 쉬운 본문 글꼴과 한국어, 영어, 중국어를 지원합니다.",
+        "인벤토리에서 현재 히어로와 일곱 장비 슬롯, 선택한 아이템을 함께 확인하고 착용하거나 해제할 수 있습니다. 의상은 기본 의상으로, 배경은 투명으로 돌아갑니다.",
+        "메뉴를 이동해도 트레이 창 크기는 유지됩니다. 작은 화면에서는 내용을 세로로 배치하며 좌우 넘침을 방지합니다. 저장 중 다른 분류를 선택해도 선택 상태와 포커스를 보존합니다.",
+        "Pocket Buddy 히어로와 공통 숨쉬기 애니메이션, 아이템 보유 상태, 퀘스트, 골드, 탐험 진행과 기존 자동 업데이트 정책은 그대로 유지됩니다. 사용 중 강제로 재시작하지 않습니다."
+      ]
+    },
+    "en": {
+      "summary": "A pixel RPG-inspired Guild UI for the tray popup.",
+      "notes": [
+        "Top navigation, pixel branding, equipment slots and the item grid share a consistent Guild style, with readable body text in Korean, English and Chinese.",
+        "View your current Hero, seven equipment slots and the selected item together. Equip or remove items; clothing resets to the default outfit and removing a background restores transparency.",
+        "The tray window keeps the same size across menus. Smaller screens stack content vertically without horizontal overflow. Changing categories during a save preserves selection and focus.",
+        "Your Pocket Buddy Hero, shared breathing animation, owned items, quests, gold, expedition progress and existing automatic update policy are preserved. No forced restart during use."
+      ]
+    },
+    "zh": {
+      "summary": "托盘弹窗焕新为像素 RPG 风格的 Guild 界面。",
+      "notes": [
+        "顶部导航、像素标识、装备槽与物品网格采用统一的 Guild 风格，正文清晰易读，支持韩语、英语与中文。",
+        "同时查看当前英雄、七个装备槽与所选物品，可装备或卸下物品。服装恢复为默认服装，卸下背景后恢复透明。",
+        "切换菜单时托盘窗口尺寸保持一致。小屏幕采用纵向布局，避免横向溢出。保存期间切换分类也会保留所选状态与焦点。",
+        "Pocket Buddy 英雄、统一呼吸动画、已拥有的物品、任务、金币、探险进度与现有自动更新策略均保留，使用期间不会强制重启。"
+      ]
+    }
+  },
+  "installation": {
+    "en": "Apple Silicon macOS 12 or later. Signed 1.3.x and later clients use the existing stable update channel without forced restart. Old public ad-hoc 1.2.0 installations may need one manual DMG installation; keep your application data.",
+    "ko": "Apple Silicon, macOS 12 이상용입니다. 정식 서명된 1.3.x 이상은 기존 안정 채널로 업데이트하며 사용 중 강제 재시작하지 않습니다. 과거 임시 서명 1.2.0은 DMG로 한 번 직접 설치해야 할 수 있으며, 앱 데이터는 삭제하지 마세요."
+  }
+}

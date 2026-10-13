@@ -97,7 +97,8 @@ function ensureTrayShell() {
   if (!document.getElementById("tray-page")) {
     root.innerHTML = `<div class="tray-shell">
       <header class="tray-shell-header"><img class="companion-avatar" data-canonical-hero alt="${textHtml("custom.previewAlt")}" />
-        <strong>OS Hero</strong><button class="icon-button" id="tray-settings" data-tray-route="settings"></button>
+        <strong>OS Hero</strong><div class="tray-gold gold-balance" role="group"><span id="tray-gold-label"></span><strong id="tray-gold-value"></strong></div>
+        <button class="icon-button" id="tray-settings" data-tray-route="settings"></button>
       </header><div id="update-applied-notice" class="update-applied-notice" hidden role="status"></div>
       <div class="tray-shell-body"><nav class="tray-rail" aria-label="${textHtml("tray.panelNav")}"></nav>
         <section id="tray-page" class="tray-page" tabindex="-1"></section>
@@ -107,6 +108,10 @@ function ensureTrayShell() {
   }
   appRoot = document.getElementById("tray-page");
   appRoot.dataset.route = trayRoute;
+  const gold = document.querySelector(".tray-gold");
+  gold.setAttribute("aria-label", text("inventory.goldAria"));
+  document.getElementById("tray-gold-label").textContent = text("inventory.gold");
+  updateInventoryGoldDisplay();
   const settings = document.getElementById("tray-settings");
   settings.innerHTML = uiIcon("settings");
   settings.title = text("tray.settings");
@@ -137,6 +142,7 @@ function navigateTray(route, questId) {
   if (view !== "tray") return api.openTrayView(route);
   if (!["companion", "customization", "inventory", "quests", "settings", "about", "updates"].includes(route)) return;
   captureTrayUi();
+  if (trayRoute !== route) inventorySelectionRevision += 1;
   trayRoute = route;
   if (questId) questRoute = { mode: "detail", id: questId, type: null, editing: false, page: 1 };
   renderCurrentView();

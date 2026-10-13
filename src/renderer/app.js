@@ -16,6 +16,8 @@ let expeditionUnsubscribe = null;
 let customizationDraft = null;
 let customizationHairDirty = false;
 const inventoryRoute = { tab: "hair", item: null, previewEquipped: false, scroll: new Map() };
+let inventorySelectionRevision = 0;
+let revealInventorySelection = false;
 let inventoryActionPending = false;
 let inventoryError = "";
 const previewRequests = new WeakMap();
@@ -86,9 +88,9 @@ function currentGold() {
 }
 
 function updateInventoryGoldDisplay() {
-  const goldValue = document.getElementById("inventory-gold-value");
-  if (goldValue) {
-    goldValue.textContent = formatNumber(currentGold());
+  for (const id of ["inventory-gold-value", "tray-gold-value"]) {
+    const goldValue = document.getElementById(id);
+    if (goldValue) goldValue.textContent = formatNumber(currentGold());
   }
 }
 
@@ -392,6 +394,17 @@ function renderInventory() {
     const itemList = appRoot.querySelector(".item-list");
     if (itemList) {
       itemList.scrollTop = scrollTopByTab.get(inventoryRoute.tab) || 0;
+      if (revealInventorySelection && itemList.scrollHeight > itemList.clientHeight) {
+        const selected = itemList.querySelector(".item-row.selected");
+        if (selected) {
+          const row = selected.getBoundingClientRect();
+          const list = itemList.getBoundingClientRect();
+          if (row.top < list.top) itemList.scrollTop += row.top - list.top;
+          else if (row.bottom > list.bottom) itemList.scrollTop += row.bottom - list.bottom;
+          scrollTopByTab.set(inventoryRoute.tab, itemList.scrollTop);
+        }
+      }
+      revealInventorySelection = false;
     }
   };
 
@@ -410,6 +423,8 @@ function renderInventory() {
 
   const chooseCategory = (tab, previewEquipped = false) => {
     rememberScroll();
+    inventorySelectionRevision += 1;
+    revealInventorySelection = previewEquipped;
     inventoryRoute.tab = tab;
     inventoryRoute.item = null;
     inventoryRoute.previewEquipped = previewEquipped;
@@ -417,10 +432,10 @@ function renderInventory() {
     persistTrayUi();
   };
 
-  const updateEquipment = async (payload) => {
+  const updateEquipment = async (payload, revealSlot = false) => {
     if (inventoryActionPending) return;
     rememberScroll();
-    const selection = { tab: inventoryRoute.tab, item: inventoryRoute.item, previewEquipped: inventoryRoute.previewEquipped };
+    const selectionRevision = inventorySelectionRevision;
     inventoryError = "";
     inventoryActionPending = true;
     render();
@@ -429,7 +444,8 @@ function renderInventory() {
     try {
       state = await api.updateEquipment(payload);
       saved = true;
-      selectionUnchanged = Object.entries(selection).every(([key, value]) => inventoryRoute[key] === value);
+      // State broadcasts can clear the selected item before the save promise resolves.
+      selectionUnchanged = selectionRevision === inventorySelectionRevision;
       if (selectionUnchanged) {
         inventoryRoute.tab = payload.slot;
         inventoryRoute.item = state.character.equipped[payload.slot];
@@ -441,7 +457,7 @@ function renderInventory() {
       inventoryActionPending = false;
       if (currentView() === "inventory") {
         renderCurrentView();
-        if (saved && selectionUnchanged) appRoot.querySelector(`[data-equipped-slot="${payload.slot}"]`)?.focus({ preventScroll: true });
+        if (saved && selectionUnchanged) appRoot.querySelector(`[data-equipped-slot="${payload.slot}"]`)?.focus({ preventScroll: !revealSlot });
       }
       paintCanonicalHero();
       persistTrayUi();
@@ -464,17 +480,22 @@ function renderInventory() {
           }
         }
       : state.character;
+    const guild = view === "tray";
+    const selectedEquipped = Boolean(selectedItem && state.character.equipped[selectedItem.slot] === selectedItem.id);
+    const selectedReset = selectedItem?.slot === "clothes";
+    const canRemoveSelected = selectedEquipped && (!selectedReset || !selectedItem.isDefault);
     appRoot.innerHTML = `
-      <div class="inventory-content" aria-busy="${inventoryActionPending}">
-        <div class="inventory-header">
+      <div class="inventory-content ${guild ? "guild-inventory" : ""}" aria-busy="${inventoryActionPending}">
+        ${guild ? "" : `<div class="inventory-header">
           <h1 class="window-title">${textHtml("window.inventory")}</h1>
           <div class="gold-balance" aria-label="${textHtml("inventory.goldAria")}">
             <span>${textHtml("inventory.gold")}</span>
             <strong id="inventory-gold-value">${escapeHtml(formatNumber(currentGold()))}</strong>
           </div>
-        </div>
+        </div>`}
+        ${guild ? '<div class="inventory-layout">' : ""}
         <section class="equipment-bar" aria-labelledby="equipment-heading">
-          <h2 id="equipment-heading">${textHtml("inventory.equipment")}</h2>
+          <h2 id="equipment-heading">${textHtml(guild ? selectedItem && !selectedEquipped ? "inventory.draftPreview" : "inventory.currentHero" : "inventory.equipment")}</h2>
           <div class="equipment-slots">
             ${state.itemCategories.map((category) => {
               const item = state.items.find((entry) => entry.id === state.character.equipped[category.id]);
@@ -491,13 +512,16 @@ function renderInventory() {
                 ${item ? `<button class="slot-remove icon-button" data-unequip-slot="${category.id}" title="${escapeHtml(actionLabel)}" aria-label="${escapeHtml(actionLabel)}" ${!removable || inventoryActionPending ? "disabled" : ""}>${uiIcon(reset ? "rotate-ccw" : "x")}</button>` : ""}
               </div>`;
             }).join("")}
+            ${guild ? `<div class="equipment-scene">${renderPreviewPane("")}</div>` : ""}
           </div>
         </section>
-        <p class="inventory-error" role="status" ${inventoryError ? "" : "hidden"}>${escapeHtml(inventoryError)}</p>
-        ${view === "tray" ? `<label class="inventory-category" for="inventory-category"><span>${textHtml("tray.category")}</span>
-          <select id="inventory-category">${state.itemCategories.map((category) => `<option value="${category.id}" ${currentTab === category.id ? "selected" : ""}>${escapeHtml(categoryName(category.id))}</option>`).join("")}</select></label>` : ""}
-        <div class="inventory-layout">
+        ${guild ? "" : `<p class="inventory-error" role="status" ${inventoryError ? "" : "hidden"}>${escapeHtml(inventoryError)}</p>`}
+        ${guild ? '<div class="guild-collection">' : '<div class="inventory-layout">'}
           <section class="inventory-list">
+            ${guild ? `<div class="inventory-list-heading"><h1 class="window-title">${textHtml("window.inventory")}</h1>
+              <label class="inventory-category" for="inventory-category"><span class="visually-hidden">${textHtml("tray.category")}</span>
+                <select id="inventory-category">${state.itemCategories.map((category) => `<option value="${category.id}" ${currentTab === category.id ? "selected" : ""}>${escapeHtml(categoryName(category.id))}</option>`).join("")}</select>
+              </label></div>` : ""}
             <nav class="tabs" aria-label="${textHtml("inventory.tabs")}">
               ${state.itemCategories
                 .map(
@@ -514,7 +538,7 @@ function renderInventory() {
                 .map((item) => {
                   const equipped = state.character.equipped[item.slot] === item.id;
                   return `
-                    <button class="item-row ${item.id === selectedItemId ? "selected" : ""}" data-item="${item.id}">
+                    <button class="item-row ${item.id === selectedItemId ? "selected" : ""}" data-item="${item.id}" aria-pressed="${item.id === selectedItemId}">
                       <img class="item-thumbnail ${item.slot === "background" ? "landscape-thumbnail" : ""}" src="${state.itemThumbnails[item.id]}" alt="" />
                       <span class="item-information">
                         <h3>${escapeHtml(itemName(item))}</h3>
@@ -528,18 +552,25 @@ function renderInventory() {
             </div>
           </section>
           <div class="side-preview">
-            ${renderPreviewPane(text("inventory.previewNote"))}
+            ${guild ? "" : renderPreviewPane(text("inventory.previewNote"))}
             <section class="form-pane">
-              <div class="field-group">
+              <div class="field-group inventory-selection">
+                ${guild && selectedItem ? `<img class="item-thumbnail selection-thumbnail ${selectedItem.slot === "background" ? "landscape-thumbnail" : ""}" src="${state.itemThumbnails[selectedItem.id]}" alt="" />` : ""}
+                <div>
                 <span class="field-title">${selectedItem ? escapeHtml(itemName(selectedItem)) : textHtml("inventory.emptySlot")}</span>
                 <p class="preview-note">${textHtml("inventory.itemType", { category: categoryName(currentTab) })}</p>
+                </div>
+                ${guild && selectedEquipped ? `<span class="badge equipped">${textHtml("inventory.equipped")}</span>` : ""}
               </div>
               <div class="action-row">
-                <button id="equip-button" class="primary-button" ${inventoryActionPending || !selectedItem || state.character.equipped[selectedItem.slot] === selectedItem.id ? "disabled" : ""}>${escapeHtml(buttonLabel(selectedItem))}</button>
+                <button id="equip-button" class="primary-button" ${inventoryActionPending || !selectedItem || selectedEquipped ? "disabled" : ""} ${guild && canRemoveSelected ? "hidden" : ""}>${escapeHtml(buttonLabel(selectedItem))}</button>
+                ${guild && canRemoveSelected ? `<button id="selected-unequip-button" class="primary-button" ${inventoryActionPending ? "disabled" : ""}>${uiIcon(selectedReset ? "rotate-ccw" : "x")}<span>${textHtml(selectedReset ? "inventory.resetOutfit" : "inventory.unequip")}</span></button>` : ""}
               </div>
             </section>
           </div>
+          ${guild ? `<p class="inventory-error" role="status" ${inventoryError ? "" : "hidden"}>${escapeHtml(inventoryError)}</p>` : ""}
         </div>
+        ${guild ? "</div>" : ""}
       </div>
     `;
 
@@ -568,6 +599,8 @@ function renderInventory() {
     appRoot.querySelectorAll("[data-item]").forEach((button) => {
       button.addEventListener("click", () => {
         rememberScroll();
+        inventorySelectionRevision += 1;
+        revealInventorySelection = false;
         inventoryRoute.item = button.dataset.item;
         inventoryRoute.previewEquipped = false;
         render();
@@ -583,6 +616,8 @@ function renderInventory() {
 
       updateEquipment({ action: "equip", itemId: selectedItem.id, slot: selectedItem.slot });
     });
+    const clearButton = document.getElementById("selected-unequip-button");
+    if (clearButton) clearButton.onclick = () => updateEquipment({ action: "unequip", itemId: selectedItem.id, slot: selectedItem.slot }, true);
   };
 
   render();

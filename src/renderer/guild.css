@@ -1,0 +1,154 @@
+@font-face {
+  font-family: "OS Hero Pixel";
+  src: url("../../public/assets/fonts/press-start-2p/PressStart2P-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Tray-only theme: the native rig, standalone windows and data policies are unchanged. */
+.tray-window {
+  --bg: #fafbf8;
+  --surface: #fdfefa;
+  --surface-2: #eef4ef;
+  --text: #202d29;
+  --muted: #61736a;
+  --line: #b8c9bd;
+  --accent: #286453;
+  --accent-2: #347853;
+  --danger: #a63b3a;
+  --guild-gold: #a28a50;
+  --guild-coral: #df826d;
+  letter-spacing: 0;
+}
+.tray-window [hidden] { display: none !important; }
+.tray-window .tray-shell {
+  border-radius: 0;
+  border-color: var(--accent);
+  border-image: url("../../public/assets/ui/guild-frame.png") 25% / 12px / 0 stretch;
+}
+.tray-window .tray-shell-header { height: 56px; min-height: 56px; padding: 8px 20px; gap: 12px; border-color: var(--line); }
+.tray-window .tray-shell-header > strong { font: 400 16px/1.5 "OS Hero Pixel", monospace; white-space: nowrap; }
+.tray-window .tray-shell-header .companion-avatar { width: 32px; height: 32px; }
+.tray-window .tray-shell-header .icon-button { margin-left: 0; border-radius: 2px; }
+.tray-window .tray-shell-header .icon-button:hover, .tray-window .tray-shell-header .active { background: var(--surface-2); }
+.tray-window .tray-gold { margin-left: auto; min-height: 30px; padding: 0; gap: 8px; border: 0; border-radius: 0; background: none; color: var(--text); }
+.tray-window .tray-gold strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.tray-window .tray-gold > span { font-size: 13px; }
+.tray-window .tray-shell-body { display: flex; flex-direction: column; }
+.tray-window .tray-rail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; padding: 0; border: 0; background: #285c50; flex-shrink: 0; }
+.tray-window .tray-rail button { justify-content: center; gap: 10px; padding: 8px 12px; min-height: 48px; border-bottom: 3px solid transparent; color: #f5f8f2; background: transparent; }
+.tray-window .tray-rail button > span { display: inline; }
+.tray-window .tray-rail .ui-icon { filter: brightness(0) invert(1); }
+.tray-window .tray-rail button:hover { background: #376d5e; }
+.tray-window .tray-rail button[aria-current] { color: #ffdf8c; background: #34695b; border-bottom-color: var(--guild-coral); }
+.tray-window .tray-rail button:focus-visible { outline-color: #ffdf8c; outline-offset: -5px; }
+.tray-window .tray-page { flex: 1; padding: 18px 20px; background: var(--surface); }
+.tray-window .tray-page .window-title { font-size: 20px; line-height: 1.4; }
+.tray-window .tray-page :is(button,input,select,textarea) { border-radius: 2px; font-family: inherit; letter-spacing: 0; }
+.tray-window .tray-page :is(input,select,textarea) { border-color: var(--line); background-color: var(--surface); color: var(--text); }
+.tray-window .tray-page button:not(:disabled):active { filter: brightness(.94); }
+.tray-window .tray-page .primary-button { background: var(--accent); border: 1px solid var(--accent); color: #fff; box-shadow: inset 0 -2px 0 #1e4c3e; }
+.tray-window .tray-page .primary-button:hover:not(:disabled) { background: #34755e; }
+.tray-window .tray-page .primary-button:disabled { background: #edf2ed; border-color: var(--line); color: #63776b; box-shadow: none; opacity: 1; }
+.tray-window .tray-page .badge { border-radius: 3px; background: #edf3ed; color: var(--muted); }
+.tray-window .tray-page .badge.equipped { background: #e0efe4; color: #286453; }
+.tray-window .tray-page .preview-frame { border: 6px solid transparent; border-image: url("../../public/assets/ui/guild-frame.png") 25% / 12px / 0 stretch; aspect-ratio: auto; }
+.tray-window .tray-page .preview-frame img { display: block; aspect-ratio: 3 / 2; }
+.tray-window .tray-page .inventory-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+.tray-window .guild-inventory .equipment-bar { margin: 0; padding: 0; border: 0; }
+.tray-window .guild-inventory .equipment-bar h2 { min-height: 38px; margin: 0 0 12px; padding: 3px 0 9px; border-bottom: 1px solid var(--line); font-size: 20px; line-height: 1.3; }
+.tray-window .guild-inventory .equipment-slots {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr) 60px;
+  grid-template-areas: "hair scene clothes" "head scene back" "face scene tool" ". background .";
+  gap: 10px;
+  align-items: start;
+}
+.tray-window .guild-inventory [data-equipment-slot="hair"] { grid-area: hair; }
+.tray-window .guild-inventory [data-equipment-slot="head"] { grid-area: head; }
+.tray-window .guild-inventory [data-equipment-slot="face"] { grid-area: face; }
+.tray-window .guild-inventory [data-equipment-slot="clothes"] { grid-area: clothes; }
+.tray-window .guild-inventory [data-equipment-slot="back"] { grid-area: back; }
+.tray-window .guild-inventory [data-equipment-slot="tool"] { grid-area: tool; }
+.tray-window .guild-inventory [data-equipment-slot="background"] { grid-area: background; justify-self: center; width: 88px; }
+.tray-window .guild-inventory .equipment-scene { grid-area: scene; align-self: center; min-width: 0; }
+.tray-window .guild-inventory .equipment-scene .preview-frame { max-width: none; }
+.tray-window .guild-inventory .equipment-slot-select { border-radius: 0; gap: 5px; }
+.tray-window .guild-inventory .equipment-slot-art { height: 58px; padding: 8px; border-color: var(--line); border-radius: 2px; background: #f1f5ef; }
+.tray-window .guild-inventory .equipment-slot-select:hover .equipment-slot-art { background: #e6f0e5; border-color: #719380; }
+.tray-window .guild-inventory .equipment-slot-select[aria-current] .equipment-slot-art { background: #e9f3ec; border: 2px solid var(--guild-coral); padding: 7px; }
+.tray-window .guild-inventory .equipment-thumbnail { height: 40px; max-width: 44px; }
+.tray-window .guild-inventory .equipment-slot-label { min-height: 30px; line-height: 1.25; font-size: 12px; }
+.tray-window .guild-inventory .slot-remove { top: 2px; right: 2px; width: 24px; height: 24px; min-height: 24px; padding: 4px; border-radius: 2px; background: #e5ebe4; }
+.tray-window .guild-inventory .slot-remove:hover:not(:disabled) { background: #d2e2d2; }
+.tray-window .guild-inventory .guild-collection { border-left: 1px solid var(--line); padding-left: 18px; min-width: 0; }
+.tray-window .guild-inventory .inventory-list-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; min-height: 38px; }
+.tray-window .guild-inventory .inventory-list-heading h1 { margin: 0; flex-shrink: 0; }
+.tray-window .guild-inventory .inventory-category { margin: 0; flex: 0 1 150px; }
+.tray-window .guild-inventory .inventory-category select { width: 100%; padding: 6px; font-size: 13px; }
+.tray-window .guild-inventory .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tray-window .guild-inventory .item-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 92px; gap: 10px; height: max(164px, calc(100dvh - 304px)); max-height: 400px; align-content: start; padding-right: 4px; overflow-y: auto; overflow-x: hidden; }
+.tray-window .guild-inventory .item-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 40px minmax(0, 1fr); justify-items: center; align-items: start; gap: 4px; width: 100%; min-height: 0; height: 92px; padding: 6px; border: 1px solid var(--line); border-radius: 2px; background: #f8faf5; text-align: center; }
+.tray-window .guild-inventory .item-row:hover { background: #edf4e9; border-color: #719380; }
+.tray-window .guild-inventory .item-row.selected { background: #ecf5ed; border: 2px solid var(--accent); padding: 5px; }
+.tray-window .guild-inventory .item-thumbnail { width: 40px; height: 40px; }
+.tray-window .guild-inventory .item-information { width: 100%; align-items: center; }
+.tray-window .guild-inventory .item-row h3 { font-size: 13px; line-height: 1.2; font-weight: 600; }
+.tray-window .guild-inventory .item-row .badge { display: none; }
+.tray-window .guild-inventory .item-row .badge.equipped { display: inline-flex; position: absolute; grid-column: auto; grid-row: auto; justify-self: auto; top: 3px; right: 3px; min-height: 14px; padding: 1px 3px; font-size: 9px; }
+.tray-window .guild-inventory .side-preview { position: static; border: 0; padding: 12px 0 0; text-align: left; }
+.tray-window .guild-inventory .inventory-selection { display: flex; align-items: center; gap: 10px; margin: 0; min-height: 54px; padding: 6px 0; border-top: 1px solid var(--line); }
+.tray-window .guild-inventory .inventory-selection > div { flex: 1; }
+.tray-window .guild-inventory .selection-thumbnail { flex: 0 0 36px; width: 36px; height: 36px; }
+.tray-window .guild-inventory .inventory-selection .field-title { display: block; margin: 0 0 3px; font-size: 15px; line-height: 1.3; }
+.tray-window .guild-inventory .inventory-selection .preview-note { text-align: left; font-size: 11px; }
+.tray-window .guild-inventory .inventory-selection .badge { flex-shrink: 0; font-size: 11px; padding: 3px 6px; }
+.tray-window .guild-inventory .side-preview .action-row { margin-top: 8px; }
+.tray-window .guild-inventory :is(#equip-button,#selected-unequip-button) { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 40px; font-weight: 600; }
+.tray-window .guild-inventory .primary-button .ui-icon { filter: brightness(0) invert(1); }
+.tray-window .guild-inventory .inventory-error { padding-top: 12px; }
+.tray-window .tray-page .settings-command:hover { background: var(--surface-2); }
+.tray-window .tray-page .settings-row { border-color: var(--line); }
+.tray-window .tray-page .switch { width: 38px; max-width: 38px; min-height: 22px; padding: 0; border: 0; border-radius: 3px; background-color: #9aaa9e; }
+.tray-window .tray-page .switch:checked { background-color: var(--accent); }
+.tray-window .tray-page .switch::after { border-radius: 1px; }
+.tray-window .tray-page .quit-command { color: var(--danger); }
+.tray-window .tray-page .companion-body { min-height: max(380px, calc(100dvh - 146px)); }
+.tray-window .tray-page .companion-quest.is-current { background: #edf4e9; }
+.tray-window .tray-page #reward-progress::-webkit-progress-bar { background: #e3ece1; }
+.tray-window .tray-page #reward-progress::-webkit-progress-value { background: #5b9670; border-radius: 2px; }
+.tray-window .tray-page .companion-dialog { border-radius: 3px; border-color: var(--accent); background: var(--surface); }
+.tray-window .tray-page .choice-button.active, .tray-window .tray-page .tab-button.active { color: var(--accent); background: #e9f2e8; border-color: var(--accent); }
+.tray-window #settings-update-status { color: var(--accent); }
+.tray-window .tray-status { background: #285c50; border-radius: 2px; }
+
+@media (max-width: 680px) {
+  .tray-window .tray-page { padding: 16px; }
+  .tray-window .guild-inventory .inventory-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .tray-window .guild-inventory .equipment-slots { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-areas: none; }
+  .tray-window .guild-inventory .equipment-slot[data-equipment-slot] { grid-area: auto; width: 100%; justify-self: stretch; }
+  .tray-window .guild-inventory .equipment-scene { grid-area: 1 / 1 / 2 / -1; justify-self: center; width: min(252px, 100%); }
+  .tray-window .guild-inventory .equipment-slot-label { min-height: 30px; }
+  .tray-window .guild-inventory .guild-collection { border-left: 0; border-top: 1px solid var(--line); padding: 18px 0 0; }
+  .tray-window .guild-inventory .item-list { height: auto; max-height: none; overflow: visible; scrollbar-gutter: auto; padding-right: 0; }
+  .tray-window .tray-page .companion-body { grid-template-columns: minmax(0, 1fr); }
+  .tray-window .tray-page .companion-quests { border-right: 0; border-bottom: 1px solid var(--line); padding: 0 0 16px; }
+  .tray-window .tray-page .companion-expedition { padding: 18px 0 0; }
+}
+@media (max-width: 520px) {
+  .tray-window .tray-shell-header { gap: 8px; padding: 8px 12px; }
+  .tray-window .tray-shell-header > strong { font-size: 12px; }
+  .tray-window .tray-gold > span { display: none; }
+  .tray-window .tray-gold strong { font-size: 14px; }
+  .tray-window .tray-rail button { padding: 8px; gap: 6px; font-size: 13px; }
+  .tray-window .tray-page { padding: 14px 12px; }
+  .tray-window .guild-inventory .side-preview { display: block; border: 0; padding: 12px 0 0; }
+  .tray-window .guild-inventory .equipment-scene { width: min(228px, 100%); }
+  .tray-window .guild-inventory .inventory-list-heading h1 { font-size: 18px; }
+}
+@media (max-width: 420px) {
+  .tray-window .guild-inventory .equipment-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tray-window .tray-page .settings-row select { width: 100%; }
+  .tray-window .tray-page .settings-row { flex-wrap: wrap; }
+}

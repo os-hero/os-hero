@@ -25,7 +25,7 @@ const setTrayImage = Tray.prototype.setImage;
 Tray.prototype.setImage = function (image) { qaTrayImage = image; return setTrayImage.call(this, image); };
 const { defaultCharacter } = require("../src/shared/catalog");
 const { normalizeExpedition, dayKey } = require("../src/shared/expedition");
-const scenario = process.argv.includes("--idle") ? "idle" : process.argv.includes("--unequip-restart") ? "unequip-restart" : process.argv.includes("--unequip") ? "unequip" : process.argv.includes("--backgrounds") ? "backgrounds" : process.argv.includes("--updates") ? "updates" : process.argv.includes("--tray-shell") ? "tray-shell" : process.argv.includes("--inventory-layout") ? "inventory-layout" : process.argv.includes("--wardrobe") ? "wardrobe" : process.argv.includes("--restart") ? "restart" : process.argv.includes("--completion") ? "completion" : "flow";
+const scenario = process.argv.includes("--idle") ? "idle" : process.argv.includes("--unequip-restart") ? "unequip-restart" : process.argv.includes("--unequip") ? "unequip" : process.argv.includes("--backgrounds") ? "backgrounds" : process.argv.includes("--updates") ? "updates" : process.argv.includes("--tray-shell") ? "tray-shell" : process.argv.includes("--inventory-layout") ? "inventory-layout" : process.argv.includes("--guild") ? "guild" : process.argv.includes("--wardrobe") ? "wardrobe" : process.argv.includes("--restart") ? "restart" : process.argv.includes("--completion") ? "completion" : "flow";
 const profile = process.env.OS_HERO_QA_PROFILE || fs.mkdtempSync(path.join(os.tmpdir(), "oshero-qa-"));
 const output = process.env.OS_HERO_QA_OUTPUT || path.resolve(__dirname, `../review-artifacts/${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })}`);
 fs.mkdirSync(output, { recursive: true });
@@ -129,6 +129,8 @@ app.whenReady().then(async () => {
       await require("./qa-tray-shell")({ panel, BrowserWindow, app, tray: qaTray, profile, output, check, capture, wait });
     } else if (scenario === "inventory-layout") {
       await require("./qa-inventory-layout")({ panel, BrowserWindow, output, check, capture, wait });
+    } else if (scenario === "guild") {
+      await require("./qa-guild-ui")({ panel, BrowserWindow, profile, output, check, capture, wait });
     } else if (scenario === "wardrobe") {
       await require("./qa-wardrobe")({ panel, BrowserWindow, profile, output, check, capture, wait });
     } else if (scenario === "restart") {

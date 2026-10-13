@@ -4,6 +4,7 @@ const { PNG } = require("pngjs");
 const { ITEM_CATEGORIES } = require("../src/shared/catalog");
 const decode = (src) => PNG.sync.read(Buffer.from(src.split(",")[1], "base64"));
 const fixtureItems = ["long_hair", "red_cap", "round_glasses", "travel_jacket", "teal_backpack", "travel_mug", "background_rain_town"];
+const expectedSlotRows = width => width > 680 ? 4 : width > 420 ? 2 : 3;
 
 async function run({ panel, BrowserWindow, app, profile, output, check, capture, wait, getTrayImage }) {
   const js = (code) => panel.webContents.executeJavaScript(code, true);
@@ -113,11 +114,11 @@ async function run({ panel, BrowserWindow, app, profile, output, check, capture,
         check(`${language}/${width}/${slot}: labels, icons and current-slot state valid`, metrics.labelsFit && metrics.iconsLoaded && metrics.localized && await js(`document.querySelector('[data-equipped-slot=${slot}]').getAttribute('aria-current')==='true'`));
         if (language === "en") {
           const label = await js("(() => {const label=document.querySelector('[data-equipped-slot=background] .equipment-slot-label');const style=getComputedStyle(label);const range=document.createRange();range.selectNodeContents(label);return {text:label.textContent,width:label.getBoundingClientRect().width,height:label.getBoundingClientRect().height,font:style.font,lineWidths:Array.from(range.getClientRects(),rect=>rect.width)};})()");
-          if (label.height >= 24) {
+          if (label.lineWidths.length !== 1) {
             await capture(panel, `unequip-label-${language}-${width}.png`);
             fs.writeFileSync(path.join(output, `unequip-label-${language}-${width}.json`), JSON.stringify(label, null, 2));
           }
-          check(`${language}/${width}/${slot}: compact background label stays on one line`, label.height < 24);
+          check(`${language}/${width}/${slot}: compact background label stays on one line`, label.lineWidths.length === 1 && label.lineWidths[0] <= label.width + 1);
         }
         if (width === 760) {
           const bottom = await js("document.getElementById('equip-button').getBoundingClientRect().bottom");
@@ -127,7 +128,7 @@ async function run({ panel, BrowserWindow, app, profile, output, check, capture,
         group.push({ language, width, slot, ...metrics });
       }
       for (const key of ["slots", "list", "preview"]) check(`${language}/${width}: ${key} width stable across all seven categories`, group.every(entry => JSON.stringify(entry[key]) === JSON.stringify(group[0][key])));
-      check(`${language}/${width}: toolbar wraps only at responsive breakpoints`, group.every(entry => entry.rows === (width > 752 ? 1 : width > 420 ? 2 : 3)));
+      check(`${language}/${width}: equipment positions match the paper-doll/compact breakpoint`, group.every(entry => entry.rows === expectedSlotRows(width)));
       measurements.push(...group);
       if (language === "en" || width === 390 || width === 320) await capture(panel, `unequip-${language}-${width}.png`);
       if (width <= 520) {
@@ -142,15 +143,15 @@ async function run({ panel, BrowserWindow, app, profile, output, check, capture,
   fs.writeFileSync(path.join(output, "unequip-layout-measurements.json"), JSON.stringify(measurements, null, 2));
   const boundaries = [];
   await js("window.osHeroApi.setLanguage('en')");
-  for (const width of [753, 752, 749, 748, 721, 720, 421, 420, 361, 360]) {
+  for (const width of [753, 752, 749, 748, 721, 720, 681, 680, 421, 420, 361, 360]) {
     panel.setSize(width, 600);
     await wait(80);
     const native = JSON.stringify(panel.getSize());
-    const metrics = await js("(() => {const label=document.querySelector('[data-equipped-slot=background] .equipment-slot-label');const slots=document.querySelector('.equipment-slots');return {width:innerWidth,labelHeight:label.getBoundingClientRect().height,rows:new Set(Array.from(slots.children,tile=>tile.getBoundingClientRect().top)).size,overflow:document.documentElement.scrollWidth>innerWidth || appRoot.scrollWidth>appRoot.clientWidth};})()");
+    const metrics = await js("(() => {const label=document.querySelector('[data-equipped-slot=background] .equipment-slot-label');const range=document.createRange();range.selectNodeContents(label);return {width:innerWidth,labelWidth:label.clientWidth,lineWidths:Array.from(range.getClientRects(),rect=>rect.width),rows:new Set(Array.from(document.querySelectorAll('.equipment-slot'),tile=>tile.getBoundingClientRect().top)).size,overflow:document.documentElement.scrollWidth>innerWidth || appRoot.scrollWidth>appRoot.clientWidth};})()");
     boundaries.push(metrics);
-    if (metrics.labelHeight >= 24 || metrics.overflow) await capture(panel, `unequip-boundary-${width}.png`);
-    check(`en/${width}: responsive boundary preserves labels and native size without overflow`, metrics.labelHeight < 24 && !metrics.overflow && JSON.stringify(panel.getSize()) === native);
-    check(`en/${width}: responsive boundary uses the intended slot rows`, metrics.rows === (width > 752 ? 1 : width > 420 ? 2 : 3));
+    if (metrics.lineWidths.length !== 1 || metrics.overflow) await capture(panel, `unequip-boundary-${width}.png`);
+    check(`en/${width}: responsive boundary preserves labels and native size without overflow`, metrics.lineWidths.length === 1 && metrics.lineWidths[0] <= metrics.labelWidth + 1 && !metrics.overflow && JSON.stringify(panel.getSize()) === native);
+    check(`en/${width}: responsive boundary uses the intended equipment positions`, metrics.rows === expectedSlotRows(width));
   }
   fs.writeFileSync(path.join(output, "unequip-boundary-measurements.json"), JSON.stringify(boundaries, null, 2));
   panel.setSize(760, 600);
