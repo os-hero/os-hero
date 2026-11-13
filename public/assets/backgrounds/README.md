@@ -1,6 +1,6 @@
 # Pixel Backgrounds
 
-Original OS Hero artwork on a 39x26 RGBA grid (3:2). These ten PNGs are bundled locally, not fetched at runtime or copied from reference sites. All backgrounds are currently provided as starter items by explicit user decision.
+Original OS Hero artwork on a 39x26 RGBA grid (3:2). These twelve PNGs are bundled locally, not fetched at runtime or copied from reference sites. All backgrounds are currently provided as starter items by explicit user decision. Rainy Cafe and Glasshouse extend the original ten environments without changing their pixels.
 
 - Catalog and localized names: `src/shared/backgrounds.js`.
 - Saved selection: `character.json` -> `equipped.background`. Missing/invalid selection uses `background_meadow`.

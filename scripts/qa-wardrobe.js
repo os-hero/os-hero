@@ -1,14 +1,14 @@
 const fs = require("fs");
 const path = require("path");
-const { defaultCharacter, equipItem } = require("../src/shared/catalog");
+const { defaultCharacter, equipItem, ITEMS } = require("../src/shared/catalog");
 const { renderCharacterDataUrl, renderTrayCharacterBuffer } = require("../src/main/pixelRenderer");
 
-module.exports = async function ({ panel, BrowserWindow, profile, output, check, capture, wait }) {
+module.exports = async function ({ panel, BrowserWindow, profile, output, check, capture, wait, getTrayImage }) {
   const js = (code) => panel.webContents.executeJavaScript(code, true);
   const original = fs.readFileSync(path.join(profile, "character.json"), "utf8");
   let state = await js("window.osHeroApi.getState()");
   check("legacy head and tool slots migrate in memory", state.character.equipped.hair === "long_hair" && state.character.equipped.back === "small_bag" && !state.character.equipped.head && !state.character.equipped.tool);
-  check("all 65 owned wardrobe items and 10 backgrounds retained", state.items.length === 75);
+  check("all starter wardrobe items and backgrounds retained", state.items.length === ITEMS.filter(item => item.owned).length);
   await js("window.osHeroApi.openTrayView('inventory')");
   await wait(250);
   const inventory = panel;
@@ -75,6 +75,7 @@ module.exports = async function ({ panel, BrowserWindow, profile, output, check,
   await js("navigateTray('companion')");
   await renderLookBoard({ BrowserWindow, capture });
   await renderMenuContrastBoard({ BrowserWindow, capture });
+  await require("./qa-everyday-items")({ panel, BrowserWindow, profile, output, check, capture, wait, getTrayImage });
 };
 
 async function renderLookBoard({ BrowserWindow, capture }) {

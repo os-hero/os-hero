@@ -36,8 +36,8 @@ function assertMenuPixels(tray, original, background, scale) {
   }
 }
 
-test("ten original backgrounds have unique reproducible 3:2 opaque native PNG assets", () => {
-  assert.equal(BACKGROUND_ITEMS.length, 10);
+test("twelve backgrounds have unique reproducible 3:2 opaque native PNG assets", () => {
+  assert.equal(BACKGROUND_ITEMS.length, 12);
   const unique = new Set();
   for (const item of BACKGROUND_ITEMS) {
     const bytes = fs.readFileSync(path.resolve(__dirname, "../public", item.assetPath));
@@ -49,11 +49,11 @@ test("ten original backgrounds have unique reproducible 3:2 opaque native PNG as
     assert.equal(item.owned, true); assert.equal(item.slot, "background");
     assert.equal(ITEMS.find((entry) => entry.id === item.id), item);
   }
-  assert.equal(unique.size, 10);
+  assert.equal(unique.size, BACKGROUND_ITEMS.length);
   assert.equal(ITEM_CATEGORIES.at(-1).id, "background");
 });
 
-test("all ten background thumbnails and scaled scenes share symmetric 4px pixel corners without changing their source", () => {
+test("all background thumbnails and scaled scenes share symmetric 4px pixel corners without changing their source", () => {
   const emptyHero = Array.from({ length: 24 * 24 }, () => [0, 0, 0, 0]);
   for (const item of BACKGROUND_ITEMS) {
     const bytes = fs.readFileSync(path.resolve(__dirname, "../public", item.assetPath));

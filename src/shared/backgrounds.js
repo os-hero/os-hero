@@ -14,7 +14,9 @@ const BACKGROUND_ITEMS = [
   ["rain_town", "Rainy Village", "비 오는 마을", "雨中小镇"],
   ["moon_lake", "Moonlit Lake", "달빛 호수", "月光湖畔"],
   ["autumn", "Autumn Woods", "가을숲", "秋日树林"],
-  ["volcano", "Volcanic Trail", "화산 길", "火山小径"]
+  ["volcano", "Volcanic Trail", "화산 길", "火山小径"],
+  ["rain_cafe", "Rainy Cafe", "비 오는 카페", "雨天咖啡馆"],
+  ["glasshouse", "Glasshouse", "유리온실", "玻璃温室"]
 ].map(([theme, name, ko, zh]) => ({
   id: `background_${theme}`, name, theme, category: "background", slot: "background",
   owned: true, collection: "pixel_backgrounds", isDefault: theme === "meadow",

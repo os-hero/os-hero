@@ -180,6 +180,25 @@ function drawClothesLayer(grid, character, bob, pose) {
   drawRect(grid, 7, torsoY + 1, 1, 4, lighten(style.shirt, 0.2));
   drawRect(grid, 16, torsoY + 2, 1, 4, darken(style.shirt, 0.28));
 
+  if (clothesId === "workshop_apron") {
+    drawRect(grid, 8, torsoY + 1, 8, 5, style.accent);
+    drawRect(grid, 9, torsoY + 1, 6, 1, trim);
+    drawRect(grid, 10, torsoY + 3, 4, 3, darken(style.accent, 0.3));
+    drawRect(grid, 11, torsoY + 4, 2, 1, lighten(style.accent, 0.22));
+    drawLegs(grid, bob, style.pants, pose);
+    drawRect(grid, 8, torsoY + 6, 8, 1, darken(style.accent, 0.16));
+    return;
+  }
+  if (clothesId === "raincoat") {
+    drawPixelPattern(grid, [[8, torsoY + 1], [9, torsoY + 2], [15, torsoY + 1], [14, torsoY + 2]], style.accent);
+    drawRect(grid, 11, torsoY + 1, 1, 5, darken(style.shirt, 0.15));
+    drawPixelPattern(grid, [[12, torsoY + 2], [12, torsoY + 4]], trim);
+    drawLegs(grid, bob, style.pants, pose);
+    drawRect(grid, 7, torsoY + 6, 10, 1, style.shirt);
+    drawRect(grid, 7, torsoY + 7, 10, 1, shirtShade);
+    return;
+  }
+
   if (["travel_jacket", "rune_coat", "village_armor"].includes(clothesId)) {
     if (clothesId === "travel_jacket") {
       drawRect(grid, 10, torsoY + 1, 4, 2, style.trim);
@@ -469,6 +488,20 @@ function drawHairstyle(grid, character, bob, item) {
   rect(6, 1, 4, 1, light);
   rect(15, 2, 3, 1, shade);
   switch (item.id) {
+    case "twin_buns":
+      lock(5, 2, 4, 5); lock(15, 2, 4, 5);
+      if (getItemById(character.equipped.head)?.hairFit !== "cap") {
+        lock(2, -2, 5, 5); lock(17, -2, 5, 5);
+        points([[4, -1], [19, -1]], light);
+      }
+      points([[8, 3], [9, 4], [14, 4], [15, 3]], primary);
+      break;
+    case "wave_bob":
+      lock(4, 2, 5, 8); lock(15, 2, 5, 8);
+      lock(2, 7, 5, 4); lock(17, 7, 5, 4);
+      points([[4, 8], [5, 9], [18, 9], [19, 8]], light);
+      points([[7, 3], [8, 4], [15, 3], [16, 4]], primary);
+      break;
     case "long_hair":
       lock(4, 2, 5, 12); lock(15, 2, 5, 12);
       rect(6, 11, 12, 3, shade);
@@ -554,6 +587,31 @@ function drawHeadLayer(grid, character, bob, item = getItemById(character.equipp
   const accent = item.style.accent || darken(primary, 0.2);
   const shade = darken(primary, 0.22);
   const light = lighten(primary, 0.16);
+
+  if (item.id === "berry_beret") {
+    drawRect(grid, 13, bob, 2, 2, OUTLINE);
+    drawRect(grid, 7, 1 + bob, 9, 1, OUTLINE);
+    drawRect(grid, 4, 2 + bob, 15, 2, OUTLINE);
+    drawRect(grid, 5, 4 + bob, 13, 1, OUTLINE);
+    drawRect(grid, 8, 1 + bob, 5, 1, light);
+    drawRect(grid, 5, 2 + bob, 12, 1, primary);
+    drawRect(grid, 6, 3 + bob, 12, 1, primary);
+    drawRect(grid, 8, 2 + bob, 4, 1, accent);
+    return;
+  }
+  if (item.id === "studio_headphones") {
+    drawRect(grid, 6, bob, 12, 1, OUTLINE);
+    drawRect(grid, 4, 1 + bob, 2, 5, OUTLINE);
+    drawRect(grid, 18, 1 + bob, 2, 5, OUTLINE);
+    drawRect(grid, 6, 1 + bob, 12, 1, primary);
+    drawRect(grid, 7, 1 + bob, 4, 1, light);
+    for (const x of [2, 19]) {
+      drawRect(grid, x, 5 + bob, 3, 5, OUTLINE);
+      drawRect(grid, x + 1, 6 + bob, 1, 3, primary);
+      setPixel(grid, x + 1, 7 + bob, accent);
+    }
+    return;
+  }
 
   if (["wizard_hat", "rune_hat"].includes(item.id)) {
     drawRect(grid, 12, bob, 4, 1, OUTLINE);
@@ -741,6 +799,27 @@ function drawToolLayer(grid, character, bob, item = getItemById(character.equipp
   }
 
   const eyeY = 6 + bob;
+
+  if (item.id === "camp_lantern") {
+    drawRect(grid, 18, 14 + bob, 4, 1, OUTLINE);
+    drawRect(grid, 18, 15 + bob, 1, 2, OUTLINE);
+    drawRect(grid, 21, 15 + bob, 1, 2, OUTLINE);
+    drawRect(grid, 18, 17 + bob, 6, 5, OUTLINE);
+    drawRect(grid, 19, 17 + bob, 4, 1, item.style.primary);
+    drawRect(grid, 19, 18 + bob, 4, 3, item.style.primary);
+    drawRect(grid, 20, 18 + bob, 2, 3, item.style.accent);
+    setPixel(grid, 20, 18 + bob, "#FFF3D5");
+    return;
+  }
+  if (item.id === "big_paintbrush") {
+    drawRect(grid, 18, 7 + bob, 6, 7, OUTLINE);
+    drawRect(grid, 19, 8 + bob, 4, 3, item.style.primary);
+    drawRect(grid, 19, 8 + bob, 2, 2, lighten(item.style.primary, 0.35));
+    drawRect(grid, 19, 11 + bob, 4, 2, "#E8BE6C");
+    drawRect(grid, 20, 14 + bob, 3, 6, OUTLINE);
+    drawRect(grid, 21, 14 + bob, 1, 5, item.style.accent);
+    return;
+  }
 
   if (item.id === "travel_mug") {
     drawRect(grid, 18, 13 + bob, 4, 6, OUTLINE);
@@ -1019,6 +1098,32 @@ function drawBackLayer(grid, character, bob) {
   if (!item) return;
   if (item.id === "small_bag") return drawToolLayer(grid, character, bob, item);
   const { primary, accent } = item.style;
+  if (["bedroll_pack", "flower_basket"].includes(item.id)) {
+    drawRect(grid, 2, 14 + bob, 20, 7, OUTLINE);
+    drawRect(grid, 3, 15 + bob, 18, 5, primary);
+    drawRect(grid, 3, 18 + bob, 18, 1, darken(primary, 0.25));
+    if (item.id === "bedroll_pack") {
+      drawRect(grid, 2, 10 + bob, 20, 4, OUTLINE);
+      drawRect(grid, 3, 11 + bob, 18, 2, accent);
+      for (const x of [4, 19]) {
+        drawRect(grid, x, 11 + bob, 1, 2, darken(accent, 0.25));
+        setPixel(grid, x - 1, 11 + bob, lighten(accent, 0.25));
+      }
+    } else {
+      for (const [x, flower] of [[0, "#D881A6"], [19, "#E8E9D9"]]) {
+        drawRect(grid, x + 2, 12 + bob, 1, 5, "#62956B");
+        drawRect(grid, x + 1, 9 + bob, 3, 1, OUTLINE);
+        drawRect(grid, x, 10 + bob, 5, 3, OUTLINE);
+        drawRect(grid, x + 1, 13 + bob, 3, 1, OUTLINE);
+        drawRect(grid, x + 1, 10 + bob, 3, 3, flower);
+        setPixel(grid, x + 2, 11 + bob, "#E8BE6C");
+        setPixel(grid, x + 1, 15 + bob, "#82B57A");
+      }
+      drawRect(grid, 3, 16 + bob, 18, 1, accent);
+      drawRect(grid, 3, 19 + bob, 18, 1, accent);
+    }
+    return;
+  }
   if (item.id === "teal_backpack") {
     drawRect(grid, 2, 12 + bob, 6, 9, OUTLINE);
     drawRect(grid, 3, 13 + bob, 4, 7, primary);
@@ -1045,9 +1150,10 @@ function drawBackLayer(grid, character, bob) {
 function drawStrapsLayer(grid, character, bob) {
   const item = getItemById(character.equipped.back);
   if (!item) return;
-  if (item.id === "teal_backpack") {
-    drawRect(grid, 8, 13 + bob, 1, 4, item.style.accent);
-    drawRect(grid, 15, 13 + bob, 1, 4, darken(item.style.accent, 0.18));
+  if (["teal_backpack", "bedroll_pack", "flower_basket"].includes(item.id)) {
+    const strap = item.style.strap || item.style.accent;
+    drawRect(grid, 8, 13 + bob, 1, 4, strap);
+    drawRect(grid, 15, 13 + bob, 1, 4, darken(strap, 0.18));
     setPixel(grid, 8, 16 + bob, OUTLINE);
     setPixel(grid, 15, 16 + bob, OUTLINE);
   } else if (item.id === "small_bag") {
@@ -1060,7 +1166,7 @@ function drawGripLayer(grid, character, bob) {
   if (!item || ["wooden_shield", "kite_shield"].includes(item.id)) return;
   let x = LEFT_HAND_TOOLS.has(item.id) ? 4 : 21;
   const y = 16 + bob + (GRIP_HEIGHTS[item.id] || 0);
-  if (["travel_mug", "field_book", "health_potion"].includes(item.id)) x = 18;
+  if (["travel_mug", "field_book", "health_potion", "camp_lantern"].includes(item.id)) x = 18;
   if (item.id === "spear") x = 21;
   if (item.id === "spellbook") x = 6;
   setPixel(grid, x - (LEFT_HAND_TOOLS.has(item.id) ? -1 : 1), y, OUTLINE);
@@ -1135,6 +1241,10 @@ function drawClothesDetails(grid, character, bob) {
     points([[8, 1], [9, 1]], lighten(accent, 0.25));
     points([[7, 3], [8, 3], [15, 5], [16, 5]], fold);
     points([[9, 4], [14, 4]], lighten(trim, 0.3));
+  } else if (["workshop_apron", "raincoat"].includes(id)) {
+    // Preserve the broad apron pocket and raincoat buttons instead of generic trim.
+    points([[7, 2], [7, 3]], light);
+    points([[16, 4], [16, 5]], fold);
   } else if (id === "travel_jacket" || id === "pirate_coat") {
     points([[8, 2], [9, 2], [14, 2], [15, 2]], fold);
     points([[8, 3], [14, 3]], light);

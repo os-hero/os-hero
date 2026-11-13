@@ -762,7 +762,7 @@ ITEMS.push(...WARDROBE_ITEMS);
 ITEMS.push(...BACKGROUND_ITEMS);
 for (const item of ITEMS.filter((entry) => entry.slot === "head")) {
   item.hairFit = ["knight_helmet", "horned_helm", "ninja_hood"].includes(item.id) ? "cover"
-    : ["gold_crown", "silver_circlet"].includes(item.id) ? "band" : "cap";
+    : ["gold_crown", "silver_circlet", "studio_headphones"].includes(item.id) ? "band" : "cap";
 }
 
 function isValidHexColor(value) {

@@ -132,7 +132,7 @@ app.whenReady().then(async () => {
     } else if (scenario === "guild") {
       await require("./qa-guild-ui")({ panel, BrowserWindow, profile, output, check, capture, wait });
     } else if (scenario === "wardrobe") {
-      await require("./qa-wardrobe")({ panel, BrowserWindow, profile, output, check, capture, wait });
+      await require("./qa-wardrobe")({ panel, BrowserWindow, profile, output, check, capture, wait, getTrayImage: () => qaTrayImage });
     } else if (scenario === "restart") {
       check("earned item retained after process restart", state.items.some(({ id }) => id === "expedition_star_hat"));
       check("saved equipment retained after process restart", state.character.equipped.head === "expedition_star_hat");

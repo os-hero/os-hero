@@ -106,14 +106,14 @@ test("chest transitions stay visible between backpack straps for every outfit", 
   }
 });
 
-test("all twelve hairstyles have distinct rendered silhouettes at the same color", () => {
+test("all hairstyles have distinct rendered silhouettes at the same color", () => {
   for (const hairColor of HAIR_COLORS) {
     const masks = HAIR_IDS.map((id) => {
       const hero = equipItem({ ...defaultCharacter(), hairColor }, id);
       const layers = renderCharacterLayers(hero, 0);
       return layers.hairBack.map((p, i) => p[3] || layers.hairFront[i][3] ? "1" : "0").join("");
     });
-    assert.equal(new Set(masks).size, 12, hairColor);
+    assert.equal(new Set(masks).size, HAIR_IDS.length, hairColor);
   }
 });
 

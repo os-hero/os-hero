@@ -91,6 +91,35 @@ function paintBackground(theme) {
       rect(3, 9, 3, 1, "#D29983"); rect(33, 9, 3, 1, "#D29983");
       hill(21, "#A7A7AD"); grass(23, "#B8B7B3", "#D3C9BE", "#9799A2");
       rect(0, 24, 7, 1, "#D6957A"); rect(32, 24, 7, 1, "#D6957A"); rect(1, 24, 4, 1, "#EDC39A"); break;
+    case "rain_cafe":
+      rect(0, 0, W, H, "#BBDCCB"); rect(0, 22, W, 4, "#B3C6AF");
+      rect(0, 2, 9, 16, "#578D85"); rect(1, 3, 7, 14, "#7FBDCF");
+      rect(4, 3, 1, 14, "#578D85"); rect(1, 10, 7, 1, "#578D85");
+      for (const [x, y] of [[2, 5], [6, 7], [2, 13], [6, 14]]) {
+        rect(x, y, 1, 2, "#D3EBE5"); rect(x - 1, y + 2, 1, 1, "#D3EBE5");
+      }
+      rect(34, 0, 1, 5, "#748877"); rect(32, 5, 5, 1, "#C09357");
+      rect(31, 6, 7, 3, "#E8BE6C"); rect(32, 8, 5, 1, "#F8DCA1");
+      for (const x of [0, 32]) {
+        rect(x, 20, 7, 2, "#D99380"); rect(x + 1, 22, 2, 4, "#9F8873");
+        rect(x, 20, 7, 1, "#E8B39A");
+      }
+      break;
+    case "glasshouse":
+      rect(0, 0, W, H, "#B8E0CF"); rect(0, 23, W, 3, "#BED199");
+      rect(3, 3, 1, 20, "#6B9D87"); rect(35, 3, 1, 20, "#6B9D87");
+      for (let i = 0; i < 4; i++) {
+        rect(4 + i, 3 - i, 2, 1, "#6B9D87"); rect(33 - i, 3 - i, 2, 1, "#6B9D87");
+      }
+      rect(0, 6, W, 1, "#90BDA5");
+      for (const x of [0, 32]) {
+        rect(x + 3, 13, 1, 9, "#65906C");
+        rect(x + 1, 15, 2, 2, "#7EAD70"); rect(x + 4, 17, 2, 2, "#7EAD70");
+        rect(x + 2, 11, 3, 1, "#E7A18B"); rect(x + 1, 12, 5, 3, "#E7A18B");
+        rect(x + 2, 15, 3, 1, "#D8877C"); rect(x + 3, 13, 1, 1, "#F6DEA0");
+        rect(x + 1, 20, 5, 2, "#CD8B70"); rect(x + 2, 22, 3, 2, "#AF7B67");
+      }
+      break;
     default: throw new Error(`Unknown background theme: ${theme}`);
   }
   return PNG.sync.write(png);
