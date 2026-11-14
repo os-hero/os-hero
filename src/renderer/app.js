@@ -174,210 +174,7 @@ function requestWindowFit() {
 }
 
 function renderCustomization() {
-  let draft = customizationDraft || {
-    ...state.character,
-    equipped: { ...state.character.equipped }
-  };
-  draft.equipped = { ...state.character.equipped, hair: customizationHairDirty ? draft.equipped.hair : state.character.equipped.hair };
-  customizationDraft = draft;
-
-  appRoot.innerHTML = `
-    <div>
-      <h1 class="window-title">${textHtml("window.customization")}</h1>
-      <div class="split">
-        ${renderPreviewPane(text("custom.previewNote"))}
-        <section class="form-pane">
-          <div class="field-group">
-            <span class="field-title">${textHtml("custom.gender")}</span>
-            <div class="segmented" id="gender-options">
-              ${state.genderOptions
-                .map(
-                  (gender) => `
-                    <button class="choice-button ${draft.gender === gender.id ? "active" : ""}" data-gender="${gender.id}">
-                      <strong>${escapeHtml(genderName(gender))}</strong>
-                      <span>${escapeHtml(genderDescription(gender))}</span>
-                    </button>
-                  `
-                )
-                .join("")}
-            </div>
-          </div>
-          <div class="field-group">
-            <label class="field-title" for="hair-style">${textHtml("custom.hair")}</label>
-            <select id="hair-style">
-              <option value="">${textHtml("custom.noHair")}</option>
-              ${state.items.filter((item) => item.slot === "hair").map((item) => `<option value="${item.id}" ${draft.equipped.hair === item.id ? "selected" : ""}>${escapeHtml(itemName(item))}</option>`).join("")}
-            </select>
-          </div>
-          <div class="field-group">
-            <span class="field-title">${textHtml("custom.hairColor")}</span>
-            <div class="hair-colors" role="group" aria-label="${textHtml("custom.hairColor")}">
-              <button class="original-color ${draft.hairColor === null ? "active" : ""}" data-hair-color="" aria-pressed="${draft.hairColor === null}">${textHtml("custom.originalHairColor")}</button>
-              ${state.hairColors.map((color, i) => `<button class="hair-color ${draft.hairColor === color ? "active" : ""}" data-hair-color="${color}" title="${textHtml(`hairColor.${i}`)}" aria-label="${textHtml(`hairColor.${i}`)}" aria-pressed="${draft.hairColor === color}"></button>`).join("")}
-            </div>
-          </div>
-          <div class="field-group">
-            <span class="field-title">${textHtml("custom.eyeType")}</span>
-            <div class="segmented" id="eye-options">
-              ${state.eyeTypes
-                .map(
-                  (eyeType) => `
-                    <button class="choice-button ${draft.eyeType === eyeType.id ? "active" : ""}" data-eye="${eyeType.id}">
-                      <strong>${escapeHtml(eyeName(eyeType))}</strong>
-                      <span>${escapeHtml(eyeDescription(eyeType))}</span>
-                    </button>
-                  `
-                )
-                .join("")}
-            </div>
-          </div>
-          <div class="field-group">
-            <label class="field-title" for="body-color">${textHtml("custom.bodyColor")}</label>
-            <div class="color-row">
-              <input class="hex-input" id="body-color" value="${escapeHtml(draft.bodyColor)}" maxlength="7" spellcheck="false" />
-              <input class="color-swatch" id="body-color-picker" type="color" value="${escapeHtml(draft.bodyColor)}" aria-label="${textHtml("custom.bodyColorSwatch")}" />
-            </div>
-            <p class="error-text" id="color-error"></p>
-          </div>
-          <div class="action-row">
-            <button id="cancel-button">${textHtml("common.cancel")}</button>
-            <button class="primary-button" id="save-button">${textHtml("common.save")}</button>
-          </div>
-        </section>
-      </div>
-    </div>
-  `;
-
-  const preview = document.getElementById("character-preview");
-  const genderOptions = document.getElementById("gender-options");
-  const eyeOptions = document.getElementById("eye-options");
-  const colorInput = document.getElementById("body-color");
-  const colorPicker = document.getElementById("body-color-picker");
-  const colorError = document.getElementById("color-error");
-  const saveButton = document.getElementById("save-button");
-  const cancelButton = document.getElementById("cancel-button");
-
-  document.getElementById("hair-style").addEventListener("change", (event) => {
-    draft.equipped.hair = event.target.value || null;
-    customizationHairDirty = true;
-    updatePreview(preview, draft);
-  });
-  appRoot.querySelectorAll("[data-hair-color]").forEach((button) => {
-    if (button.dataset.hairColor) button.style.setProperty("--hair-color", button.dataset.hairColor);
-    button.addEventListener("click", () => {
-      draft.hairColor = button.dataset.hairColor || null;
-      appRoot.querySelectorAll("[data-hair-color]").forEach((option) => {
-        const active = (option.dataset.hairColor || null) === draft.hairColor;
-        option.classList.toggle("active", active);
-        option.setAttribute("aria-pressed", String(active));
-      });
-      updatePreview(preview, draft);
-    });
-  });
-
-  const validate = () => {
-    const valid = isValidHexColor(colorInput.value);
-    colorError.textContent = valid ? "" : text("custom.hexError");
-    saveButton.disabled = !valid;
-    return valid;
-  };
-
-  const syncPreview = () => {
-    if (!validate()) {
-      return;
-    }
-
-    draft = {
-      ...draft,
-      bodyColor: colorInput.value.toUpperCase()
-    };
-    customizationDraft = draft;
-    colorInput.value = draft.bodyColor;
-    colorPicker.value = draft.bodyColor;
-    updatePreview(preview, draft);
-  };
-
-  genderOptions.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-gender]");
-    if (!button) {
-      return;
-    }
-
-    draft.gender = button.dataset.gender;
-    genderOptions.querySelectorAll("button").forEach((option) => {
-      option.classList.toggle("active", option.dataset.gender === draft.gender);
-    });
-    updatePreview(preview, draft);
-  });
-
-  eyeOptions.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-eye]");
-    if (!button) {
-      return;
-    }
-
-    draft.eyeType = button.dataset.eye;
-    eyeOptions.querySelectorAll("button").forEach((option) => {
-      option.classList.toggle("active", option.dataset.eye === draft.eyeType);
-    });
-    updatePreview(preview, draft);
-  });
-
-  colorInput.addEventListener("input", () => {
-    if (isValidHexColor(colorInput.value)) {
-      syncPreview();
-    } else {
-      validate();
-    }
-  });
-
-  colorPicker.addEventListener("input", () => {
-    colorInput.value = colorPicker.value.toUpperCase();
-    syncPreview();
-  });
-
-  saveButton.addEventListener("click", async () => {
-    if (!validate()) {
-      return;
-    }
-
-    saveButton.disabled = true;
-    try {
-      await api.saveCharacter({
-        gender: draft.gender,
-        bodyColor: colorInput.value.toUpperCase(),
-        eyeType: draft.eyeType,
-        hair: draft.equipped.hair,
-        hairColor: draft.hairColor
-      });
-      if (view === "tray") {
-        customizationDraft = null;
-        customizationHairDirty = false;
-        clearTrayForm();
-        state = await api.getState();
-        renderCurrentView();
-        persistTrayUi();
-        trayNotice(text("companion.saved"));
-      } else await api.closeWindow();
-    } catch {
-      colorError.textContent = text("companion.error");
-      saveButton.disabled = false;
-    }
-  });
-
-  cancelButton.addEventListener("click", async () => {
-    await api.cancelCustomization();
-    if (view === "tray") {
-      customizationDraft = null;
-      customizationHairDirty = false;
-      clearTrayForm();
-      renderCurrentView();
-      persistTrayUi();
-    } else await api.closeWindow();
-  });
-
-  startPreviewAnimation(preview, () => draft);
-  requestWindowFit();
+  renderHeroView();
 }
 
 function renderInventory() {
@@ -550,6 +347,7 @@ function renderInventory() {
                 })
                 .join("")}
             </div>
+            ${currentTab === "hair" ? `<section class="inventory-hair-color"><h2>${textHtml("custom.hairColor")}</h2>${hairColorOptions(state.character.hairColor)}</section>` : ""}
           </section>
           <div class="side-preview">
             ${guild ? "" : renderPreviewPane(text("inventory.previewNote"))}
@@ -584,6 +382,14 @@ function renderInventory() {
     });
     const categorySelect = document.getElementById("inventory-category");
     if (categorySelect) categorySelect.onchange = () => chooseCategory(categorySelect.value);
+    colorHairButtons(appRoot, async color => {
+      if (inventoryActionPending) return;
+      inventoryActionPending = true;
+      appRoot.querySelectorAll("[data-hair-color]").forEach(button => { button.disabled = true; });
+      try { state = await api.setHairColor(color); inventoryError = ""; }
+      catch { inventoryError = text("hero.saveError"); }
+      finally { inventoryActionPending = false; if (currentView() === "inventory") renderCurrentView(); }
+    });
 
     appRoot.querySelectorAll("[data-equipped-slot]").forEach((button) => {
       button.onclick = () => chooseCategory(button.dataset.equippedSlot, true);
@@ -1461,11 +1267,12 @@ async function main() {
 
   stateUnsubscribe = api.onAppState((nextState) => {
     const unchanged = JSON.stringify(state.character) === JSON.stringify(nextState.character) && state.settings.language === nextState.settings.language;
+    const growthChanged = state.expedition?.adventure?.xp !== nextState.expedition?.adventure?.xp || state.expedition?.adventure?.victories !== nextState.expedition?.adventure?.victories || state.expedition?.adventure?.defeats !== nextState.expedition?.adventure?.defeats;
     captureTrayUi();
     state = nextState;
     applyHeroMotion(state.hero.motion);
     paintCanonicalHero();
-    if (currentView() === "customization" && unchanged) return;
+    if (currentView() === "customization" && unchanged && (!state.character.identity || !growthChanged)) return;
     if (currentView() === "inventory" && unchanged) return;
     renderCurrentView();
   });
@@ -1473,8 +1280,11 @@ async function main() {
   motionUnsubscribe = api.onHeroMotion(applyHeroMotion);
 
   expeditionUnsubscribe = api.onExpeditionState((nextExpedition) => {
+    const previousVictories = state.expedition?.adventure?.victories;
+    const previousDefeats = state.expedition?.adventure?.defeats;
     state.expedition = nextExpedition;
     if (view === "tray") updateCompanionProgress();
+    if (currentView() === "customization" && state.character.identity && (previousVictories !== nextExpedition.adventure?.victories || previousDefeats !== nextExpedition.adventure?.defeats)) renderCurrentView();
   });
 
   if (api.onWalletState) {

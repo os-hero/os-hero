@@ -20,7 +20,7 @@ function normalizeTraySession(value) {
   const json = JSON.stringify(value);
   if (json.length > 128 * 1024) throw new Error("Tray session is too large");
   const result = {};
-  for (const key of ["route", "customizationDraft", "customizationHairDirty", "inventory", "questRoute", "questDraft", "quickQuest", "dialog", "scroll", "formValues"])
+  for (const key of ["route", "customizationDraft", "customizationHairDirty", "registration", "inventory", "questRoute", "questDraft", "quickQuest", "dialog", "scroll", "formValues"])
     if (Object.hasOwn(value, key)) result[key] = JSON.parse(JSON.stringify(value[key]));
   result.route = TRAY_ROUTES.has(result.route) ? result.route : "companion";
   result.hasUnsavedChanges = value.hasUnsavedChanges === true;

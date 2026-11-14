@@ -25,9 +25,9 @@ const setTrayImage = Tray.prototype.setImage;
 Tray.prototype.setImage = function (image) { qaTrayImage = image; return setTrayImage.call(this, image); };
 const { defaultCharacter } = require("../src/shared/catalog");
 const { normalizeExpedition, dayKey } = require("../src/shared/expedition");
-const scenario = process.argv.includes("--idle") ? "idle" : process.argv.includes("--unequip-restart") ? "unequip-restart" : process.argv.includes("--unequip") ? "unequip" : process.argv.includes("--backgrounds") ? "backgrounds" : process.argv.includes("--updates") ? "updates" : process.argv.includes("--tray-shell") ? "tray-shell" : process.argv.includes("--inventory-layout") ? "inventory-layout" : process.argv.includes("--guild") ? "guild" : process.argv.includes("--wardrobe") ? "wardrobe" : process.argv.includes("--restart") ? "restart" : process.argv.includes("--completion") ? "completion" : "flow";
+const scenario = ["hero-new", "hero-new-restart", "hero-rpg", "hero-restart", "idle", "unequip-restart", "unequip", "backgrounds", "updates", "tray-shell", "inventory-layout", "guild", "wardrobe", "restart", "completion"].find(name => process.argv.includes(`--${name}`)) || "flow";
 const profile = process.env.OS_HERO_QA_PROFILE || fs.mkdtempSync(path.join(os.tmpdir(), "oshero-qa-"));
-const output = process.env.OS_HERO_QA_OUTPUT || path.resolve(__dirname, `../review-artifacts/${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })}`);
+const output = path.resolve(process.env.OS_HERO_QA_OUTPUT || path.resolve(__dirname, `../review-artifacts/${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })}`));
 fs.mkdirSync(output, { recursive: true });
 const geometryEvents = [];
 const geometryPath = path.join(output, `qa-${scenario}-geometry.json`);
@@ -53,11 +53,15 @@ process.env.OS_HERO_USER_DATA_DIR = profile;
 const write = (name, data) => fs.writeFileSync(path.join(profile, name), JSON.stringify(data));
 const base = defaultCharacter("1.2.0");
 write("character.json", base);
+// Appearance-editor regression fixtures explicitly model unfinished new-user onboarding.
+if (["flow", "idle", "unequip", "guild", "tray-shell", "updates"].includes(scenario)) write("character.json", { ...base, registrationMode: "create" });
+if (scenario === "hero-new") fs.unlinkSync(path.join(profile, "character.json"));
+if (scenario === "hero-rpg") write("character.json", { ...base, gender: "female", bodyColor: "#FFE6BD", eyeType: "bright", hairColor: "#714D38", equipped: { hair: "long_hair", head: "silver_circlet", face: "forehead_goggles", clothes: "rune_coat", back: "teal_cape", tool: "trail_sword", background: "background_meadow" } });
 if (scenario === "backgrounds") {
   const old = structuredClone(base); delete old.equipped.background;
   write("character.json", old);
 }
-if (scenario === "wardrobe") write("character.json", { hasCharacter: true, gender: "male", bodyColor: "#F1C27D", eyeType: "default", equipped: { head: "long_hair", clothes: "default_clothes", tool: "small_bag" }, version: "1.2.0" });
+if (scenario === "wardrobe") write("character.json", { hasCharacter: true, registrationMode: "create", gender: "male", bodyColor: "#F1C27D", eyeType: "default", equipped: { head: "long_hair", clothes: "default_clothes", tool: "small_bag" }, version: "1.2.0" });
 write("settings.json", { language: "ko", launchAtLogin: false });
 write("wallet.json", { gold: 17 });
 const now = new Date().toISOString();
@@ -67,8 +71,8 @@ write("quests.json", { quests: [
 ] });
 const initialExpedition = normalizeExpedition({ day: dayKey(), progress: { expedition_star_hat: scenario === "completion" ? 75 * 60000 - 500 : 50 * 60000 } });
 write("expedition.json", initialExpedition);
-if (["restart", "unequip-restart"].includes(scenario)) {
-  const saved = JSON.parse(fs.readFileSync(path.join(output, scenario === "restart" ? "restart-fixture.json" : "unequip-restart-fixture.json")));
+if (["restart", "unequip-restart", "hero-restart", "hero-new-restart"].includes(scenario)) {
+  const saved = JSON.parse(fs.readFileSync(path.join(output, scenario === "hero-new-restart" ? "hero-new-fixture.json" : scenario === "hero-restart" ? "hero-restart-fixture.json" : scenario === "restart" ? "restart-fixture.json" : "unequip-restart-fixture.json")));
   for (const [file, data] of Object.entries(saved)) write(file, data);
 }
 const errors = [];
@@ -115,7 +119,13 @@ app.whenReady().then(async () => {
     check("canonical icons match hero at same frame", await js("JSON.stringify(Array.from(document.querySelectorAll('[data-canonical-hero]')).map(img=>img.src).every(src=>src===document.querySelector('[data-canonical-hero]').src))") === "true");
     await capture(panel, `${scenario}-desktop.png`);
 
-    if (scenario === "idle") {
+    if (["hero-new", "hero-new-restart"].includes(scenario)) {
+      await require("./qa-hero-rpg").newUser({ panel, profile, output, check, capture, wait, restart: scenario === "hero-new-restart" });
+    } else if (scenario === "hero-rpg") {
+      await require("./qa-hero-rpg")({ panel, BrowserWindow, app, profile, output, check, capture, wait });
+    } else if (scenario === "hero-restart") {
+      await require("./qa-hero-rpg").restart({ panel, profile, output, check, capture, wait });
+    } else if (scenario === "idle") {
       await require("./qa-idle").run({ panel, BrowserWindow, app, profile, output, check, capture, wait, getTrayImage: () => qaTrayImage, qaIdle });
     } else if (scenario === "unequip") {
       await require("./qa-unequip").run({ panel, BrowserWindow, app, profile, output, check, capture, wait, getTrayImage: () => qaTrayImage });
@@ -164,11 +174,13 @@ app.whenReady().then(async () => {
       fs.writeFileSync(path.join(output, "restart-fixture.json"), JSON.stringify(fixture));
     } else {
       const before = state.expedition.progress.expedition_star_hat;
-      await js("document.querySelector('[data-quest-toggle]').click()");
+      await js("document.getElementById('adventure-quests').click()");
+      await js("window.osHeroApi.saveQuest({id:'qa-proposal',type:'adventure',title:'제안서 초안 정리',status:'done'})");
       await wait(200);
       state = await js("window.osHeroApi.getState()");
       check("quest completion changes no reward progress or gold", state.expedition.progress.expedition_star_hat === before && state.wallet.gold === 17);
-      check("completion celebration visible", await js("document.getElementById('companion-notice').textContent.includes('완료')"));
+      check("quest status persists in the existing task system", state.quests.find(q=>q.id==='qa-proposal').status === 'done');
+      await js("navigateTray('companion')");
       await js("document.getElementById('companion-add').click()");
       await js("document.getElementById('quick-quest-title').value='QA 새 퀘스트'; document.getElementById('quick-quest-form').requestSubmit()");
       await wait(250);
@@ -220,10 +232,10 @@ app.whenReady().then(async () => {
       await custom.webContents.executeJavaScript("document.getElementById('body-color').value='#FFE6BD'; document.getElementById('body-color').dispatchEvent(new Event('input'))");
       check("unsaved appearance stays isolated", (await js("window.osHeroApi.getState()")).character.bodyColor === base.bodyColor);
       fs.mkdirSync(path.join(profile, "character.json.tmp"));
-      await custom.webContents.executeJavaScript("document.getElementById('save-button').click()");
+      await custom.webContents.executeJavaScript("document.getElementById('hero-name').value='모모';document.getElementById('hero-name').dispatchEvent(new Event('input'));document.getElementById('save-button').click();document.getElementById('save-button').click()");
       await wait(150);
       check("appearance save failure leaves canonical Hero intact", (await js("window.osHeroApi.getState()")).character.bodyColor === base.bodyColor);
-      check("appearance failure is visible and retryable", await custom.webContents.executeJavaScript("document.getElementById('color-error').textContent.includes('저장') && !document.getElementById('save-button').disabled"));
+      check("appearance failure is visible and retryable", await custom.webContents.executeJavaScript("document.getElementById('registration-error').textContent.includes('저장') && !document.getElementById('save-button').disabled"));
       fs.rmdirSync(path.join(profile, "character.json.tmp"));
       await custom.webContents.executeJavaScript("document.getElementById('save-button').click()");
       await wait(350);

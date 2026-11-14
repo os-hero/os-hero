@@ -29,6 +29,9 @@ const api = {
   renderScene: (character, frameIndex, scale) =>
     ipcRenderer.invoke("character:render-scene", character, frameIndex, scale),
   saveCharacter: (draft) => ipcRenderer.invoke("character:save", draft),
+  registerHero: (draft) => ipcRenderer.invoke("hero:register", draft),
+  setHairColor: (color) => ipcRenderer.invoke("inventory:set-hair-color", color),
+  selectAdventureStage: (stage) => ipcRenderer.invoke("adventure:select-stage", stage),
   cancelCustomization: () => ipcRenderer.invoke("character:cancel-customization"),
   updateEquipment: (payload) => ipcRenderer.invoke("inventory:update-equipment", payload),
   saveQuest: (payload) => ipcRenderer.invoke("quest:save", payload),

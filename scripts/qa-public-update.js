@@ -43,8 +43,11 @@ app.whenReady().then(async () => {
   let code = 0;
   try {
     updater = client(process.env.OS_HERO_QA_FROM || "1.3.0");
+    let previousAvailable = false;
+    updater.on("update-available", () => { previousAvailable = true; });
     const result = await updater.checkForUpdates();
     assert.equal(result.updateInfo.version, version);
+    assert.ok(previousAvailable);
     report.checks.push("signed previous-version baseline discovers public stable release");
     await updater.downloadUpdate();
     const helper = await updater.getOrCreateDownloadHelper();
@@ -58,6 +61,14 @@ app.whenReady().then(async () => {
     await current.checkForUpdates();
     assert.ok(latest);
     report.checks.push("current version reports up to date");
+    if (process.env.OS_HERO_QA_PREVIEW) {
+      const preview = client(process.env.OS_HERO_QA_PREVIEW);
+      let available = false;
+      preview.on("update-available", () => { available = true; });
+      assert.equal((await preview.checkForUpdates()).updateInfo.version, version);
+      assert.ok(available);
+      report.checks.push("local preview discovers newer stable release without allowing downgrades");
+    }
     const old = client("1.2.0");
     assert.equal((await old.checkForUpdates()).updateInfo.version, version);
     report.checks.push("legacy version still discovers the same compatibility feed");

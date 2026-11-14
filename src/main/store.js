@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-function readJson(filePath) {
+function readJson(filePath, strict = false) {
   try {
     if (!fs.existsSync(filePath)) {
       return null;
@@ -9,6 +9,7 @@ function readJson(filePath) {
 
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch (error) {
+    if (strict) throw new Error(`Cannot load ${path.basename(filePath)}; the saved file was not modified`, { cause: error });
     console.warn(`Failed to read ${filePath}:`, error);
     return null;
   }
@@ -36,11 +37,23 @@ class AppStore {
   saveUpdateMetadata(value) { writeJson(this.updatePath, value); }
 
   loadCharacter() {
-    return readJson(this.characterPath);
+    const value = readJson(this.characterPath, true);
+    if (fs.existsSync(this.characterPath) && (!value || typeof value !== "object" || Array.isArray(value) || Number(value.schemaVersion) > 3)) {
+      throw new Error("Unsupported saved Hero; the original file was not modified");
+    }
+    return value;
   }
 
   saveCharacter(character) {
     const previous = this.loadCharacter();
+    if (character.identity && previous && !previous.identity) {
+      const backup = path.join(this.userDataPath, "backups", "hero-registration", "character.json");
+      fs.mkdirSync(path.dirname(backup), { recursive: true, mode: 0o700 });
+      try {
+        fs.copyFileSync(this.characterPath, backup, fs.constants.COPYFILE_EXCL);
+        fs.chmodSync(backup, 0o600);
+      } catch (error) { if (error.code !== "EEXIST") throw error; }
+    }
     if (character.schemaVersion === 2 && previous && previous.schemaVersion !== 2) {
       const backup = path.join(this.userDataPath, "backups", "wardrobe-v2", "character.json");
       fs.mkdirSync(path.dirname(backup), { recursive: true, mode: 0o700 });
@@ -85,7 +98,7 @@ class AppStore {
   }
 
   loadExpedition() {
-    return readJson(this.expeditionPath);
+    return readJson(this.expeditionPath, true);
   }
 
   saveExpedition(expedition) {

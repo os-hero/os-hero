@@ -74,8 +74,8 @@ async function run({ panel, app, profile, output, check, capture, wait, qaUpdate
   check("unsaved Hero default choice cancels update restart", qa.installs === 0 && qa.dialogs.at(-1).defaultId === 0 && qa.dialogs.at(-1).cancelId === 0);
   await go("customization");
   check("cancelled restart retains exact draft", await js("document.getElementById('body-color').value==='#ABCDEF'"));
-  await js("document.getElementById('cancel-button').click()");
-  check("Hero cancellation completes before the next route", await until("!hasUnsavedTrayChanges() && document.getElementById('body-color')?.value===state.character.bodyColor"));
+  await js("document.getElementById('body-color').value=state.character.bodyColor;document.getElementById('body-color').dispatchEvent(new Event('input'));persistTrayUi()");
+  check("restoring the original registration draft clears its unsaved guard", await until("!hasUnsavedTrayChanges() && document.getElementById('body-color')?.value===state.character.bodyColor"));
   await go("quests");
   await js("document.getElementById('new-quest-button').click();document.querySelector('[data-quest-type=adventure]').click();document.getElementById('quest-title').value='update draft';persistTrayUi()");
   await go("updates"); const dialogsBefore = qa.dialogs.length;

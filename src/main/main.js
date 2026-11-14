@@ -29,6 +29,9 @@ const { createOutsideClickMonitor } = require("./outsideClick");
 const { TrayAnimator } = require("./trayAnimator");
 const { UpdateManager } = require("./updater");
 const { updateMessages } = require("../shared/updateMessages");
+const { heroName, heroRegistrationMode } = require("../shared/heroIdentity");
+const { newAdventure, selectStage } = require("../shared/adventure");
+const { heroMessages } = require("../shared/heroMessages");
 const {
   EYE_TYPES,
   GENDER_OPTIONS,
@@ -200,6 +203,7 @@ function getPublicState() {
   return {
     app: appInfo(),
     character,
+    heroRegistrationMode: heroRegistrationMode(character),
     hero: getHeroPresentation(),
     expedition: getExpeditionState(),
     settings: {
@@ -208,7 +212,7 @@ function getPublicState() {
       version: currentVersion()
     },
     languageOptions: LANGUAGE_OPTIONS,
-    messages: { ...getMessages(language), ...companionMessages(language), ...wardrobeMessages(language), ...backgroundMessages(language), ...updateMessages(language) },
+    messages: { ...getMessages(language), ...companionMessages(language), ...wardrobeMessages(language), ...backgroundMessages(language), ...updateMessages(language), ...heroMessages(language) },
     hairColors: HAIR_COLORS,
     itemThumbnails,
     eyeTypes: EYE_TYPES,
@@ -267,8 +271,9 @@ function settleExpedition(forceSave = false) {
   expeditionTickAt = now;
   const unlocked = next.unlocked.length !== expedition.unlocked.length;
   const stopped = expedition.running && !next.running;
+  const battleCompleted = next.adventure?.victories !== expedition.adventure?.victories || next.adventure?.defeats !== expedition.adventure?.defeats;
   try {
-    if (forceSave || unlocked || stopped || now - expeditionSavedAt >= 15000) persistExpedition(next);
+    if (forceSave || unlocked || stopped || battleCompleted || now - expeditionSavedAt >= 15000) persistExpedition(next);
     else expedition = next;
   } catch (error) {
     // Never publish an unlock unless its progress and entitlement were saved together.
@@ -289,6 +294,7 @@ function stopExpeditionTimer() {
 
 function runExpeditionAction(action, targetId) {
   if (expedition.running) settleExpedition(true);
+  if (action === "start" && character.identity && !expedition.adventure) persistExpedition({ ...expedition, adventure: newAdventure() });
   persistExpedition(changeExpedition(expedition, action, targetId));
   stopExpeditionTimer();
   if (expedition.running) {
@@ -475,7 +481,7 @@ function persistDefaultCharacterIfNeeded() {
     return;
   }
 
-  persistCharacter(defaultCharacter(currentVersion()));
+  persistCharacter(character);
 }
 
 function createQuestId() {
@@ -1022,7 +1028,40 @@ function registerIpcHandlers() {
     return runExpeditionAction(payload.action, payload.targetId);
   });
 
+  ipcMain.handle("adventure:select-stage", (_event, stage) => {
+    if (!character.identity) throw new Error("Register your Hero first");
+    selectStage(expedition.adventure || newAdventure(), stage);
+    if (expedition.running) runExpeditionAction("pause");
+    persistExpedition({ ...expedition, adventure: selectStage(expedition.adventure || newAdventure(), stage) });
+    notifyExpedition();
+    return getExpeditionState();
+  });
+
+  ipcMain.handle("hero:register", (_event, draft) => {
+    if (character.identity) return getPublicState();
+    const name = heroName(draft?.name);
+    let next = character;
+    // Existing Heroes are named in place. Never replay renderer appearance drafts during migration.
+    if (heroRegistrationMode(character) === "create") {
+      if (!isValidHexColor(draft.bodyColor) || !GENDER_OPTIONS.some(x => x.id === draft.gender) || !EYE_TYPES.some(x => x.id === draft.eyeType)) throw new Error("Invalid Hero");
+      if (draft.hair !== null && (getItemById(draft.hair)?.slot !== "hair" || !ownsItem(draft.hair))) throw new Error("Invalid hairstyle");
+      if (draft.hairColor !== null && !HAIR_COLORS.includes(draft.hairColor)) throw new Error("Invalid hair color");
+      next = { ...character, gender: draft.gender, bodyColor: draft.bodyColor, eyeType: draft.eyeType,
+        hairColor: draft.hairColor, equipped: { ...character.equipped, hair: draft.hair } };
+    }
+    persistCharacter({ ...next,
+      identity: { id: crypto.randomUUID(), name, registeredAt: new Date().toISOString() } });
+    return getPublicState();
+  });
+
+  ipcMain.handle("inventory:set-hair-color", (_event, color) => {
+    if (color !== null && !HAIR_COLORS.includes(color)) throw new Error("Invalid hair color");
+    persistCharacter({ ...character, hairColor: color });
+    return getPublicState();
+  });
+
   ipcMain.handle("character:save", (_event, draft) => {
+    if (heroRegistrationMode(character) !== "create") throw new Error("Existing Hero base is read-only; use the inventory");
     if (!draft || !isValidHexColor(draft.bodyColor)) {
       throw new Error("Body color must be a valid #RRGGBB hex color.");
     }
@@ -1248,9 +1287,9 @@ function bootstrap() {
 
   const storedCharacter = store.loadCharacter();
   firstRunPending = !storedCharacter || storedCharacter.hasCharacter !== true;
-  character = firstRunPending
-    ? defaultCharacter(currentVersion())
-    : normalizeCharacter(storedCharacter, currentVersion());
+  character = storedCharacter
+    ? normalizeCharacter(storedCharacter, currentVersion())
+    : { ...defaultCharacter(currentVersion()), registrationMode: "create" };
 
   const storedSettings = store.loadSettings();
   settings = normalizeSettings(storedSettings, currentVersion());
@@ -1301,6 +1340,11 @@ function bootstrap() {
     }
   });
   powerMonitor.on("resume", () => { if (expedition) notifyExpedition(); void updateManager.checkIfDue(); });
+  powerMonitor.on("lock-screen", () => {
+    if (expedition?.running) {
+      try { runExpeditionAction("pause"); } catch { console.error("Could not save expedition on lock."); }
+    }
+  });
 
   if (process.platform === "darwin" && app.dock) {
     app.dock.hide();

@@ -1,4 +1,5 @@
 const MINUTE = 60 * 1000;
+const { normalizeAdventure, advanceAdventure, battleState } = require("./adventure");
 const DAILY_LIMIT_MS = 180 * MINUTE;
 const MAX_TICK_MS = 10 * 1000;
 const REWARDS = [
@@ -24,6 +25,7 @@ function normalizeExpedition(input, today = dayKey()) {
   const storedDay = /^\d{4}-\d{2}-\d{2}$/.test(source.day || "") ? source.day : today;
   return {
     schemaVersion: 1,
+    ...(source.adventure ? { adventure: normalizeAdventure(source.adventure) } : {}),
     targetId: REWARDS.some(({ id }) => id === source.targetId) ? source.targetId : REWARDS[0].id,
     progress,
     unlocked,
@@ -47,33 +49,34 @@ function changeExpedition(state, action, targetId, today = dayKey()) {
   }
   if (action === "pause") return { ...next, running: false };
   if (action !== "start") throw new Error("Unknown expedition action");
-  if (today < next.day || next.dailyMs >= DAILY_LIMIT_MS || next.unlocked.includes(next.targetId)) {
+  if (today < next.day || next.dailyMs >= DAILY_LIMIT_MS || (!next.adventure && next.unlocked.includes(next.targetId))) {
     return { ...next, running: false };
   }
   return { ...next, running: true };
 }
 
-function advanceExpedition(state, elapsedMs, today = dayKey()) {
+function advanceExpedition(state, elapsedMs, today = dayKey(), at = new Date().toISOString()) {
   const next = refreshDay(state, today);
-  if (!next.running || next.unlocked.includes(next.targetId)) return next;
+  if (!next.running || (!next.adventure && next.unlocked.includes(next.targetId))) return next;
   // A missed heartbeat is not evidence of companionship time (sleep, stalled process).
   if (!Number.isFinite(elapsedMs) || elapsedMs < 0 || elapsedMs > MAX_TICK_MS) return { ...next, running: false };
   const reward = REWARDS.find(({ id }) => id === next.targetId);
   const required = reward.minutes * MINUTE;
-  const credited = Math.min(Math.floor(elapsedMs), DAILY_LIMIT_MS - next.dailyMs, required - next.progress[reward.id]);
-  const progress = { ...next.progress, [reward.id]: next.progress[reward.id] + credited };
+  const credited = Math.min(Math.floor(elapsedMs), DAILY_LIMIT_MS - next.dailyMs, next.adventure ? Infinity : required - next.progress[reward.id]);
+  const progress = { ...next.progress, [reward.id]: Math.min(required, next.progress[reward.id] + credited) };
   const complete = progress[reward.id] >= required;
   const dailyMs = next.dailyMs + credited;
   return {
     ...next, progress, dailyMs,
-    running: !complete && dailyMs < DAILY_LIMIT_MS,
-    unlocked: complete ? [...next.unlocked, reward.id] : next.unlocked,
+    ...(next.adventure ? { adventure: advanceAdventure(next.adventure, credited, at) } : {}),
+    running: (Boolean(next.adventure) || !complete) && dailyMs < DAILY_LIMIT_MS,
+    unlocked: complete && !next.unlocked.includes(reward.id) ? [...next.unlocked, reward.id] : next.unlocked,
     lastUnlockedId: complete ? reward.id : next.lastUnlockedId
   };
 }
 
 function publicExpedition(state) {
-  return { ...state, rewards: REWARDS, dailyLimitMs: DAILY_LIMIT_MS };
+  return { ...state, battle: battleState(state.adventure), rewards: REWARDS, dailyLimitMs: DAILY_LIMIT_MS };
 }
 
 module.exports = { REWARDS, DAILY_LIMIT_MS, MAX_TICK_MS, dayKey, normalizeExpedition, changeExpedition, advanceExpedition, publicExpedition };

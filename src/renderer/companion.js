@@ -60,94 +60,11 @@ function companionQuestRows() {
 }
 
 function renderCompanionPanel() {
-  const dialogOpen = document.querySelector(".companion-dialog[open]");
-  if (dialogOpen) {
-    paintCanonicalHero();
-    updateCompanionProgress();
-    return;
-  }
-  const focusedId = document.activeElement?.id;
-  appRoot.innerHTML = `
-    <div class="companion-page">
-      <div class="companion-body">
-        <section class="companion-quests" aria-labelledby="my-quests-title">
-          <h1 id="my-quests-title">${textHtml("companion.myQuests")}</h1>
-          <div class="companion-quest-list">${companionQuestRows()}</div>
-          <button class="text-command add-quest" id="companion-add">${uiIcon("plus")}${textHtml("companion.add")}</button>
-          <button class="text-command all-quests" data-open-view="quests">${textHtml("companion.all")}</button>
-        </section>
-        <section class="companion-expedition" aria-labelledby="expedition-title">
-          <h2 id="expedition-title">${textHtml("companion.expedition")}</h2>
-          <div class="expedition-stage">
-            <div class="expedition-countdown"><span id="expedition-label"></span><strong id="expedition-remaining"></strong></div>
-            <img id="expedition-hero" data-canonical-hero alt="${textHtml("custom.previewAlt")}" />
-          </div>
-          <button class="primary-button expedition-primary" data-companion-action id="expedition-toggle"></button>
-          <div class="expedition-meta"><span id="expedition-daily"></span><span id="companion-notice" role="status">${escapeHtml(companionToast)}</span></div>
-          <div class="expedition-reward">
-            <img id="reward-thumbnail" alt="" />
-            <div class="reward-information"><div class="reward-heading"><span>${textHtml("companion.target")}</span><strong id="reward-name"></strong></div>
-              <progress id="reward-progress" max="100" value="0" aria-label="${textHtml("companion.time", { value: 0, total: 75 })}"></progress>
-              <span id="reward-time"></span>
-            </div>
-            <button class="text-command" id="reward-change">${textHtml("companion.change")}</button>
-          </div>
-        </section>
-      </div>
-      <dialog class="companion-dialog" id="companion-dialog"></dialog>
-    </div>`;
-  appRoot.querySelectorAll("[data-open-view]").forEach((button) => button.addEventListener("click", () => navigateTray(button.dataset.openView)));
-  document.getElementById("companion-add").onclick = openCompanionQuestForm;
-  document.getElementById("reward-change").onclick = openRewardPicker;
-  document.getElementById("expedition-toggle").onclick = () => companionAction(async () => {
-    const expedition = state.expedition;
-    if (expedition.unlocked.includes(expedition.targetId)) return navigateTray("inventory");
-    state.expedition = await api.expeditionAction({ action: expedition.running ? "pause" : "start" });
-  });
-  appRoot.querySelectorAll("[data-quest-open]").forEach((button) => button.onclick = () => navigateTray("quests", button.dataset.questOpen));
-  appRoot.querySelectorAll("[data-quest-toggle]").forEach((button) => button.onclick = () => companionAction(async () => {
-    const quest = state.quests.find(({ id }) => id === button.dataset.questToggle);
-    const done = quest.status !== "done";
-    await api.updateQuestStatus({ id: quest.id, status: done ? "done" : "todo" });
-    if (done) {
-      companionNotice(text("companion.completed"));
-      document.getElementById("expedition-hero")?.classList.add("hero-celebrate");
-    }
-  }));
-  updateCompanionProgress();
-  startCompanionAnimation();
-  if (focusedId) document.getElementById(focusedId)?.focus();
-  if (trayUi.dialog === "quest") openCompanionQuestForm();
-  if (trayUi.dialog === "reward") openRewardPicker();
+  renderAdventurePanel();
 }
 
 function updateCompanionProgress() {
-  const expedition = state?.expedition;
-  if (!expedition || !document.getElementById("expedition-toggle")) return;
-  const reward = expedition.rewards.find(({ id }) => id === expedition.targetId);
-  const progress = expedition.progress[reward.id];
-  const earned = expedition.unlocked.includes(reward.id);
-  const capped = expedition.dailyMs >= expedition.dailyLimitMs;
-  const put = (id, value) => { document.getElementById(id).textContent = value; };
-  put("expedition-label", text(earned ? "companion.newReward" : expedition.clockBlocked ? "companion.clock" : capped ? "companion.limit" : "companion.nextReward"));
-  put("expedition-remaining", earned ? itemName({ id: reward.id }) : text("companion.minutes", { value: Math.ceil((reward.minutes * 60000 - progress) / 60000) }));
-  document.getElementById("expedition-remaining").classList.toggle("is-complete", earned);
-  const label = earned ? "companion.inventory" : expedition.running ? "companion.pause" : progress > 0 ? "companion.resume" : "companion.start";
-  const button = document.getElementById("expedition-toggle");
-  if (button.dataset.label !== label) {
-    button.innerHTML = `${uiIcon(earned ? "backpack" : expedition.running ? "pause" : "play")}${textHtml(label)}`;
-    button.dataset.label = label;
-  }
-  button.disabled = companionBusy || (!earned && (capped || expedition.clockBlocked));
-  put("expedition-daily", text("companion.daily", { value: Math.floor(expedition.dailyMs / 60000), total: expedition.dailyLimitMs / 60000 }));
-  put("reward-name", itemName({ id: reward.id }));
-  const thumbnail = document.getElementById("reward-thumbnail");
-  if (thumbnail.dataset.item !== reward.id) { thumbnail.src = expedition.thumbnails[reward.id]; thumbnail.dataset.item = reward.id; }
-  const progressBar = document.getElementById("reward-progress");
-  progressBar.value = progress / (reward.minutes * 60000) * 100;
-  const time = text("companion.time", { value: Math.floor(progress / 60000), total: reward.minutes });
-  progressBar.setAttribute("aria-label", time);
-  put("reward-time", time);
+  updateAdventureProgress();
 }
 
 function prepareCompanionDialog(title) {

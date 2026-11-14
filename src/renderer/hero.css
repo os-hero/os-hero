@@ -1,0 +1,107 @@
+.tray-page:has(> .hero-page) { display: flex; flex-direction: column; }
+.hero-page { display: flex; flex: 1 0 auto; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; color: var(--text, #202d29); }
+.hero-page * { min-width: 0; box-sizing: border-box; letter-spacing: 0; }
+.hero-page h1, .hero-page h2, .hero-page p { margin: 0; }
+.hero-page h2 { font-size: 16px; line-height: 1.4; }
+.hero-page .window-title { font-size: 20px; line-height: 1.4; }
+.hero-page .title-row { margin: 0; gap: 12px; }
+.hero-columns { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 26px; }
+.hero-portrait { display: flex; flex-direction: column; gap: 10px; align-items: center; padding-top: 8px; text-align: center; }
+.hero-portrait h2 { font-size: 20px; overflow-wrap: anywhere; max-width: 100%; }
+.hero-portrait small, .battle-player small { color: var(--accent, #286453); font-size: 16px; white-space: nowrap; }
+.hero-portrait p, .muted { color: var(--muted, #61736a); font-size: 13px; }
+.hero-scene { width: 100%; max-width: 240px; border: 6px solid transparent; border-image: url('../../public/assets/ui/guild-frame.png') 25% / 12px / 0 stretch; flex-shrink: 0; }
+.hero-scene img, .hero-page #expedition-hero { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: contain; image-rendering: pixelated; }
+.hero-fields { display: flex; flex-direction: column; gap: 12px; }
+.hero-field { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 12px; align-items: center; font-size: 14px; }
+.hero-field > label, .hero-field > strong { font-weight: 650; }
+.hero-field input:not([type=color]), .hero-field select { width: 100%; min-width: 0; height: 36px; padding: 6px 9px; font: inherit; color: inherit; }
+.hero-field .segmented { display: flex; gap: 8px; }
+.hero-field .choice-button { min-height: 36px; padding: 6px 10px; flex: 1; text-align: center; }
+.hero-field .color-row { display: flex; gap: 8px; }
+.hero-field .color-swatch { flex: 0 0 36px; width: 36px; height: 36px; padding: 2px; }
+.hero-fields .hair-colors, .inventory-hair-color .hair-colors { gap: 6px; flex-wrap: wrap; }
+.hero-fields .hair-color, .inventory-hair-color .hair-color { width: 28px; height: 28px; min-width: 28px; padding: 3px; flex: 0 0 28px; }
+.hero-fields .original-color, .inventory-hair-color .original-color { padding: 3px 6px; font-size: 11px; min-height: 28px; }
+.hero-footer { margin-top: auto; border-top: 1px solid var(--line, #b8c9bd); padding-top: 10px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.hero-footer button { display: inline-flex; gap: 8px; align-items: center; justify-content: center; min-height: 38px; padding: 8px 14px; white-space: normal; overflow-wrap: anywhere; }
+.hero-footer .primary-button { margin-left: auto; }
+.hero-footer .primary-button .ui-icon { filter: brightness(0) invert(1); }
+.hero-lock-note { color: var(--muted, #61736a); font-size: 12px; flex: 1; text-align: center; }
+.hero-confirm-details { display: grid; grid-template-columns: 100px 1fr; gap: 14px; font-size: 14px; margin: 8px 0; }
+.hero-confirm-details dt { color: var(--muted, #61736a); }
+.hero-confirm-details dd { margin: 0; font-weight: 650; overflow-wrap: anywhere; }
+.hero-confirm-note { line-height: 1.8; font-size: 14px; }
+.hero-stats dl { margin: 12px 0 20px; }
+.hero-stats dl > div { display: grid; grid-template-columns: 1fr 44px 1.1fr; align-items: center; gap: 12px; min-height: 40px; border-bottom: 1px solid var(--line, #b8c9bd); }
+.hero-stats dd { margin: 0; font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.hero-stats dd.muted { font-size: 13px; font-weight: 400; text-align: right; }
+.hero-xp { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; margin-bottom: 8px; }
+.hero-page progress { display: block; appearance: none; width: 100%; height: 12px; border: 0; border-radius: 2px; overflow: hidden; accent-color: #52946b; }
+.hero-page progress::-webkit-progress-bar { background: #e1ebe1; }
+.hero-page progress::-webkit-progress-value { background: #52946b; }
+.hero-journal { border-top: 1px solid var(--line, #b8c9bd); padding-top: 12px; }
+.hero-journal ol { margin: 8px 0 0; padding: 0; list-style: none; max-height: 105px; overflow-y: auto; scrollbar-gutter: stable; }
+.hero-journal li { display: flex; gap: 16px; padding: 8px 0; font-size: 13px; }
+.hero-journal time { color: var(--muted, #61736a); flex: 0 0 auto; }
+.hero-journal li span { overflow-wrap: anywhere; }
+.adventure-heading { display: flex; gap: 12px; align-items: center; border-bottom: 1px solid var(--line, #b8c9bd); padding-bottom: 4px; flex-wrap: wrap; }
+.adventure-heading > span { color: var(--accent, #286453); font-size: 13px; }
+.adventure-heading button { margin-left: auto; font-size: 12px; min-height: 26px; padding-block: 3px; }
+.battle-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+.battle-player, .battle-enemy { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.battle-columns .hero-scene { max-width: 210px; }
+.enemy-art { height: 140px; display: flex; align-items: center; justify-content: center; }
+.enemy-art img { width: 160px; height: 140px; object-fit: contain; image-rendering: pixelated; }
+.battle-columns progress { max-width: 260px; }
+.battle-columns > section > span { color: var(--muted, #61736a); font-size: 12px; }
+#enemy-hp::-webkit-progress-value { background: var(--guild-coral, #df826d); }
+.adventure-countdown { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--line, #b8c9bd); border-bottom: 1px solid var(--line, #b8c9bd); font-size: 14px; }
+.adventure-countdown strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.hero-page .adventure-reward { grid-template-columns: 44px minmax(0, 1fr) auto; min-height: 0; margin: 0; padding: 0; border: 0; gap: 12px; }
+.hero-page .adventure-reward #reward-thumbnail { width: 44px; height: 36px; object-fit: contain; image-rendering: pixelated; }
+.hero-page #reward-change { grid-column: auto; }
+.hero-page .reward-information { flex: 1; gap: 2px; }
+.hero-page .reward-heading { margin-bottom: 0; font-size: 13px; flex-wrap: wrap; }
+.hero-page #reward-time { font-size: 11px; color: var(--muted, #61736a); }
+.hero-page .adventure-message:empty { display: none; }
+.hero-page .adventure-message { font-size: 12px; color: var(--muted, #61736a); }
+.adventure-page { gap: 8px; }
+.adventure-page .hero-footer { padding-top: 8px; }
+.adventure-quest-actions { display: flex; gap: 6px; align-items: center; }
+.stage-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.stage-choices button { min-height: 40px; white-space: normal; }
+.inventory-hair-color { border-top: 1px solid var(--line, #b8c9bd); padding-top: 8px; margin-top: 8px; flex: 0 0 auto; }
+.inventory-hair-color h2 { font-size: 12px; margin: 0 0 6px; }
+@media (min-width: 681px) {
+  .tray-window .guild-inventory .inventory-list { display: flex; flex-direction: column; height: max(190px, calc(100dvh - 254px)); }
+  .tray-window .guild-inventory .inventory-list-heading { flex-shrink: 0; }
+  .tray-window .guild-inventory .item-list { flex: 1; height: auto; min-height: 0; }
+}
+@media (max-width: 680px) {
+  .hero-columns { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .hero-portrait { gap: 6px; }
+  .hero-fields { padding-bottom: 4px; }
+  .hero-lock-note { order: 3; flex-basis: 100%; }
+  .hero-journal ol { max-height: 150px; }
+  .battle-columns { gap: 16px; }
+  .battle-columns .hero-scene { max-width: 180px; }
+  .enemy-art { height: 120px; }
+  .enemy-art img { width: 130px; height: 120px; }
+  .adventure-page .hero-footer .muted { order: 3; width: 100%; text-align: center; }
+}
+@media (max-width: 420px) {
+  .hero-field { grid-template-columns: 70px minmax(0, 1fr); gap: 8px; }
+  .battle-columns { gap: 12px; }
+  .battle-columns h2 { font-size: 14px; }
+  .battle-columns small { font-size: 12px; }
+  .battle-columns .hero-scene { max-width: 150px; align-self: center; }
+  .enemy-art { height: 100px; }
+  .enemy-art img { width: 110px; height: 100px; }
+  .hero-page .reward-heading { gap: 4px; }
+  .hero-page .adventure-reward { gap: 8px; grid-template-columns: 36px minmax(0, 1fr); }
+  .hero-page .adventure-reward #reward-change { margin-left: auto; grid-column: 2; }
+  .hero-footer { gap: 8px; }
+  .hero-footer button { padding: 8px 10px; font-size: 13px; }
+  .adventure-countdown strong { font-size: 17px; }
+}

@@ -1,0 +1,39 @@
+{
+  "version": "1.7.0",
+  "copy": {
+    "ko": {
+      "summary": "함께하던 히어로에게 이름을 붙이고, 능력치와 기록이 쌓이는 초원 탐험을 시작하세요.",
+      "notes": [
+        "기존 사용자는 초기화 없이 현재 외형과 착용 장비를 그대로 불러와 이름만 등록합니다. 보유 아이템·골드·퀘스트·기존 보상 진행도는 유지됩니다.",
+        "신규 사용자는 외형과 이름을 선택하고 최종 확인 후 등록합니다. 등록된 이름·성별·피부색·눈은 고정되며, 헤어스타일·머리색·장비·배경은 인벤토리에서 변경합니다.",
+        "내 히어로에서 레벨·힘·민첩·체력·운과 경험치, 함께한 기록을 확인할 수 있습니다. 테스트본에서 이미 등록한 히어로와 성장 기록도 유지합니다.",
+        "푸른 초원 8개 스테이지에 자동 전투를 추가했습니다. 기존 탐험 시간·일일 한도·꾸미기 보상을 함께 사용하며, 패배해도 골드나 아이템을 잃지 않습니다. 입력 감시나 오프라인 보상은 추가하지 않았습니다.",
+        "등록 전 원본 백업과 원자적 저장, 실패 시 재시도 및 중복 등록 방지를 적용했습니다. 공통 히어로 외형과 CPU 연동 숨쉬기, 고정 크기 팝업 및 사용 중 강제 재시작하지 않는 업데이트 정책을 유지합니다."
+      ]
+    },
+    "en": {
+      "summary": "Name your familiar Hero and explore the meadow with growing stats and a shared history.",
+      "notes": [
+        "Existing Heroes are not reset. Register only a name while keeping current appearance, equipped and owned items, gold, quests and cosmetic reward progress.",
+        "New users choose appearance and a name before confirmation. Registered name, body, skin and eyes are fixed; hairstyles, hair colors, equipment and backgrounds remain available in Inventory.",
+        "My Hero shows level, strength, dexterity, vitality, luck, XP and history. Already registered preview Heroes and their progress are preserved.",
+        "Eight meadow stages add automatic combat to the existing expedition clock, daily limit and cosmetic goals. Defeat never removes gold or equipment. No input monitoring or offline rewards are added.",
+        "Registration backs up the original record, saves atomically and supports safe retries without duplicate identities. Shared Hero artwork, CPU-linked breathing, fixed popup sizing and guarded updates are preserved."
+      ]
+    },
+    "zh": {
+      "summary": "为熟悉的英雄命名，在草原探索中积累能力与共同的记录。",
+      "notes": [
+        "已有英雄不会重置，只需注册名字。保留当前外观、穿戴和拥有的物品、金币、任务及装扮奖励进度。",
+        "新用户选择外观与名字后确认注册。注册后的名字、性别、肤色和眼睛固定，发型、发色、装备和背景仍可在背包中更改。",
+        "我的英雄展示等级、力量、敏捷、体力、幸运、经验与记录。测试版中已注册的英雄及成长记录也会保留。",
+        "新增草原八个关卡的自动战斗，与原有探索计时、每日上限和装扮目标共用。失败不会失去金币或装备，不新增输入监控或离线奖励。",
+        "注册前备份原始记录，使用原子保存并支持安全重试，防止重复注册。保留统一英雄外观、CPU联动呼吸、固定弹窗尺寸与不会强制重启的更新策略。"
+      ]
+    }
+  },
+  "installation": {
+    "en": "Apple Silicon macOS 12 or later. Signed 1.3.x and later clients use the existing stable update channel without forced restart. Old ad-hoc 1.2.0 may require one manual DMG installation. Keep application data. Do not downgrade registered Hero data to 1.6.x.",
+    "ko": "Apple Silicon, macOS 12 이상용입니다. 정식 서명된 1.3.x 이상은 기존 안정 채널로 업데이트하며 사용 중 강제 재시작하지 않습니다. 과거 임시 서명 1.2.0은 DMG 직접 설치가 필요할 수 있습니다. 앱 데이터를 삭제하거나 등록 후 1.6.x로 임의 다운그레이드하지 마세요."
+  }
+}

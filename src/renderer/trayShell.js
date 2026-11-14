@@ -37,6 +37,7 @@ function persistTrayUi() {
 }
 
 function hasUnsavedTrayChanges() {
+  if (!state.character.identity && trayUi.registration?.name?.trim()) return true;
   if ((trayUi.quickQuest || "").trim()) return true;
   if (customizationDraft) {
     for (const field of ["gender", "bodyColor", "eyeType", "hairColor"])
@@ -72,7 +73,8 @@ function restoreTraySession(session) {
     inventoryRoute.previewEquipped = session.inventory.previewEquipped === true;
     inventoryRoute.scroll = new Map(session.inventory.scroll || []);
   }
-  trayUi = { scroll: session.scroll || {}, formValues: session.formValues || {}, dialog: session.dialog || null, quickQuest: session.quickQuest || "" };
+  trayUi = { scroll: session.scroll || {}, formValues: session.formValues || {}, dialog: session.dialog || null, quickQuest: session.quickQuest || "", registration: session.registration || null };
+  if (state.character.identity) { customizationDraft = null; customizationHairDirty = false; trayUi.registration = null; delete trayUi.formValues.customization; }
 }
 
 function restoreTrayForm() {
@@ -128,7 +130,7 @@ function ensureTrayShell() {
   }
   settings.onclick = () => navigateTray("settings");
   document.querySelector(".tray-rail").innerHTML = [
-    ["customization", "house", "tray.customize"], ["inventory", "backpack", "tray.inventory"], ["companion", "clipboard-list", "tray.quests"]
+    ["customization", "house", "hero.nav"], ["inventory", "backpack", "tray.inventory"], ["companion", "clipboard-list", "hero.expedition"]
   ].map(([route, icon, label]) => `<button data-tray-route="${route}" title="${textHtml(label)}" aria-label="${textHtml(label)}"
     ${trayRoute === route || (route === "companion" && trayRoute === "quests") ? 'aria-current="page"' : ""}>
     ${uiIcon(icon)}<span>${textHtml(label)}</span></button>`).join("");

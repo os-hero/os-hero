@@ -41,7 +41,8 @@ module.exports = async function ({ panel, BrowserWindow, profile, output, check,
   await wait(200);
   check("draft hair survives equipment update from another window", await cj("document.getElementById('hair-style').value === 'ponytail_hair' && document.querySelector('[data-hair-color=\"#714D38\"]').classList.contains('active')"));
   await capture(custom, "wardrobe-customization.png");
-  await cj("document.getElementById('save-button').click()");
+  // This fixture exercises legacy unregistered saves; registration itself has a dedicated flow.
+  await cj("window.osHeroApi.saveCharacter({...customizationDraft,hair:customizationDraft.equipped.hair})");
   await wait(250);
   state = await js("window.osHeroApi.getState()");
   check("hair save merges latest equipment without overwriting it", state.character.equipped.hair === "ponytail_hair" && state.character.hairColor === "#714D38" && state.character.equipped.face === "square_glasses" && state.character.equipped.tool === "travel_mug");

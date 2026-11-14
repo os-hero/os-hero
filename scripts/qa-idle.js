@@ -25,7 +25,7 @@ async function run({ panel, BrowserWindow, app, output, check, capture, wait, ge
   for (const [cpu, cycleMs] of [[20, 3200], [45, 2500], [70, 2000], [95, 1600], [0, 4000]]) {
     qaIdle.setCpu(cpu);
     check(`CPU ${cpu}% drives the existing native clock to ${cycleMs}ms per breath`, await until(async () => (await js("window.osHeroApi.getState()")).hero.motion.cycleMs === cycleMs));
-    check(`CPU ${cpu}% reaches all visible Hero locations without separate renderer timers`, await until(() => js(`(() => {const frames=Array.from(document.querySelectorAll('[data-canonical-hero]'));return state.hero.motion.cycleMs===${cycleMs} && frames.length>1 && frames.every(img=>Number(img.dataset.heroFrame)===state.hero.motion.frame && img.src===state.hero.frames[state.hero.motion.frame]);})()`)));
+    check(`CPU ${cpu}% reaches all visible Hero locations without separate renderer timers`, await until(() => js(`(() => {const frames=Array.from(document.querySelectorAll('[data-canonical-hero]'));const scene=document.getElementById('expedition-hero');return state.hero.motion.cycleMs===${cycleMs} && frames.length>=1 && scene.src===state.hero.sceneFrames[state.hero.motion.frame] && Number(scene.dataset.heroFrame)===state.hero.motion.frame && frames.every(img=>Number(img.dataset.heroFrame)===state.hero.motion.frame && img.src===state.hero.frames[state.hero.motion.frame]);})()`)));
   }
 
   // State can report the sampled CPU before the previously scheduled native tick fires.

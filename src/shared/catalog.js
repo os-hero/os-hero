@@ -1,4 +1,5 @@
 const DEFAULT_BODY_COLOR = "#F1C27D";
+const { normalizeIdentity } = require("./heroIdentity");
 const DEFAULT_EYE_TYPE = "default";
 const DEFAULT_CLOTHES_ID = "default_clothes";
 const DEFAULT_GENDER = "male";
@@ -828,9 +829,12 @@ function normalizeEquipped(input) {
 function normalizeCharacter(input, version) {
   const fallback = defaultCharacter(version);
   const source = input && typeof input === "object" ? input : {};
+  const identity = normalizeIdentity(source.identity);
 
   return {
-    schemaVersion: 2,
+    schemaVersion: identity ? 3 : 2,
+    ...(identity ? { identity } : {}),
+    ...(!identity && source.registrationMode === "create" ? { registrationMode: "create" } : {}),
     hasCharacter: source.hasCharacter === false ? false : true,
     gender: getGender(source.gender).id,
     bodyColor: isValidHexColor(source.bodyColor) ? source.bodyColor.toUpperCase() : fallback.bodyColor,
