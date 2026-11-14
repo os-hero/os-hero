@@ -163,7 +163,7 @@ app.whenReady().then(async () => {
       const saved = JSON.parse(fs.readFileSync(path.join(profile, "expedition.json")));
       check("entitlement and progress durable together", saved.unlocked.length === 1 && saved.progress.expedition_star_hat === 75 * 60000);
       for (const id of ["ponytail_hair", "round_glasses", "teal_backpack", "travel_mug", "travel_jacket", "background_moon_lake"]) await js(`window.osHeroApi.updateEquipment({action:'equip',itemId:${JSON.stringify(id)}})`);
-      await js(`window.osHeroApi.saveCharacter({gender:'male',bodyColor:'#F1C27D',eyeType:'default',hairColor:'#714D38'})`);
+      await js("window.osHeroApi.setHairColor('#714D38')");
       await js("window.osHeroApi.updateEquipment({action:'equip',itemId:'expedition_star_hat'})");
       await wait(300);
       check("unlocked item is equippable", (await js("window.osHeroApi.getState()")).character.equipped.head === "expedition_star_hat");
