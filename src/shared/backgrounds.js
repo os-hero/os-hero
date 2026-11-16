@@ -22,6 +22,8 @@ const BACKGROUND_ITEMS = [
   owned: true, collection: "pixel_backgrounds", isDefault: theme === "meadow",
   assetPath: `assets/backgrounds/${theme}.png`, names: { en: name, ko, "zh-CN": zh }
 }));
+BACKGROUND_ITEMS.push({ id: "background_star_meadow", name: "Starlit Meadow", theme: "star_meadow", category: "background", slot: "background",
+  owned: false, collection: "meadow_loot", assetPath: "assets/backgrounds/star_meadow.png", names: { en: "Starlit Meadow", ko: "별빛 초원", "zh-CN": "星光草原" } });
 
 function backgroundMessages(language) {
   return {

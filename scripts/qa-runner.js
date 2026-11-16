@@ -5,9 +5,10 @@ const { spawn } = require("child_process");
 const electron = require("electron");
 
 async function main() {
-  const only = ["--hero-rpg", "--idle", "--wardrobe", "--backgrounds", "--unequip", "--tray-shell", "--inventory-layout", "--guild", "--updates"].find((flag) => process.argv.includes(flag));
+  const only = ["--loot", "--hero-rpg", "--idle", "--wardrobe", "--backgrounds", "--unequip", "--tray-shell", "--inventory-layout", "--guild", "--updates"].find((flag) => process.argv.includes(flag));
   const registration = [["--hero-new"], ["--hero-new-restart"], ["--hero-rpg"], ["--hero-restart"]];
-  const scenarios = only === "--hero-rpg" ? registration : only === "--unequip" ? [["--unequip"], ["--unequip-restart"]] : only ? [[only]] : [[], ["--idle"], ["--wardrobe"], ["--backgrounds"], ["--unequip"], ["--unequip-restart"], ["--inventory-layout"], ["--tray-shell"], ["--guild"], ["--completion"], ["--restart"], ["--updates"], ...registration];
+  const loot = [["--loot"], ["--loot-restart"], ["--loot-failure"], ["--loot-shop"]];
+  const scenarios = only === "--loot" ? loot : only === "--hero-rpg" ? registration : only === "--unequip" ? [["--unequip"], ["--unequip-restart"]] : only ? [[only]] : [...loot, ["--idle"], ["--wardrobe"], ["--backgrounds"], ["--unequip"], ["--unequip-restart"], ["--inventory-layout"], ["--tray-shell"], ["--guild"], ["--updates"], ...registration];
   for (const args of scenarios) {
     const profile = fs.mkdtempSync(path.join(os.tmpdir(), "oshero-qa-"));
     try {

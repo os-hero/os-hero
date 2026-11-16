@@ -633,6 +633,13 @@ function drawHeadLayer(grid, character, bob, item = getItemById(character.equipp
     drawRect(grid, 11, 2 + bob, 2, 1, accent);
     return;
   }
+  if (item.id === "meadow_crown") {
+    drawRect(grid, 5, 3 + bob, 14, 2, OUTLINE);
+    drawRect(grid, 6, 3 + bob, 12, 1, primary);
+    drawPixelPattern(grid, [[6, 2 + bob], [8, 2 + bob], [15, 2 + bob], [17, 2 + bob]], light);
+    drawPixelPattern(grid, [[11, bob], [10, 1 + bob], [11, 1 + bob], [12, 1 + bob], [11, 2 + bob]], accent);
+    return;
+  }
   if (item.id === "gold_crown") {
     drawPixelPattern(grid, [[7, bob], [11, bob], [16, bob]], OUTLINE);
     drawRect(grid, 6, 1 + bob, 12, 3, OUTLINE);
@@ -799,6 +806,24 @@ function drawToolLayer(grid, character, bob, item = getItemById(character.equipp
   }
 
   const eyeY = 6 + bob;
+
+  if (item.id === "meadow_badge") {
+    setPixel(grid, 17, 8 + bob, item.style.primary);
+    setPixel(grid, 18, 9 + bob, item.style.accent);
+    setPixel(grid, 17, 10 + bob, item.style.primary);
+    return;
+  }
+  if (item.id === "firefly_lantern") {
+    drawRect(grid, 18, 14 + bob, 4, 1, OUTLINE);
+    drawRect(grid, 18, 15 + bob, 1, 2, OUTLINE);
+    drawRect(grid, 21, 15 + bob, 1, 2, OUTLINE);
+    drawRect(grid, 18, 17 + bob, 6, 5, OUTLINE);
+    drawRect(grid, 19, 17 + bob, 4, 4, item.style.primary);
+    drawRect(grid, 20, 18 + bob, 2, 3, darken(item.style.primary, 0.3));
+    setPixel(grid, 20, 18 + bob, item.style.accent);
+    setPixel(grid, 21, 20 + bob, "#FFF3D5");
+    return;
+  }
 
   if (item.id === "camp_lantern") {
     drawRect(grid, 18, 14 + bob, 4, 1, OUTLINE);
@@ -1144,6 +1169,9 @@ function drawBackLayer(grid, character, bob) {
     drawRect(grid, 6, 16 + bob, 1, 4, darken(primary, 0.3));
     drawRect(grid, 17, 16 + bob, 1, 4, darken(primary, 0.3));
     drawRect(grid, 19, 18 + bob, 1, 2, darken(primary, 0.2));
+    if (item.id === "leaf_cape") {
+      drawPixelPattern(grid, [[4, 16 + bob], [5, 17 + bob], [4, 18 + bob], [19, 16 + bob], [18, 17 + bob], [19, 18 + bob]], accent);
+    }
   }
 }
 
@@ -1166,7 +1194,7 @@ function drawGripLayer(grid, character, bob) {
   if (!item || ["wooden_shield", "kite_shield"].includes(item.id)) return;
   let x = LEFT_HAND_TOOLS.has(item.id) ? 4 : 21;
   const y = 16 + bob + (GRIP_HEIGHTS[item.id] || 0);
-  if (["travel_mug", "field_book", "health_potion", "camp_lantern"].includes(item.id)) x = 18;
+  if (["travel_mug", "field_book", "health_potion", "camp_lantern", "firefly_lantern"].includes(item.id)) x = 18;
   if (item.id === "spear") x = 21;
   if (item.id === "spellbook") x = 6;
   setPixel(grid, x - (LEFT_HAND_TOOLS.has(item.id) ? -1 : 1), y, OUTLINE);

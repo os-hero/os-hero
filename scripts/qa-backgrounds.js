@@ -22,11 +22,11 @@ module.exports = async function ({ panel, BrowserWindow, profile, check, capture
   let state = await js("window.osHeroApi.getState()");
   const canonicalFrames = JSON.stringify(state.hero.frames);
   const originalEquipment = { ...state.character.equipped };
-  check("all catalog backgrounds owned, default meadow assigned to existing Hero", state.items.filter(i => i.slot === "background").length === BACKGROUND_ITEMS.length && state.character.equipped.background === "background_meadow");
+  check("all starter backgrounds owned, default meadow assigned to existing Hero", state.items.filter(i => i.slot === "background").length === BACKGROUND_ITEMS.filter(i => i.owned).length && state.character.equipped.background === "background_meadow");
   await js("navigateTray('inventory');document.getElementById('inventory-category').value='background';document.getElementById('inventory-category').dispatchEvent(new Event('change'))");
   await wait(150);
   const bounds = JSON.stringify(panel.getBounds());
-  for (const item of BACKGROUND_ITEMS) {
+  for (const item of BACKGROUND_ITEMS.filter(i => i.owned)) {
     const previous = (await js("window.osHeroApi.getState()")).character.equipped.background;
     await js(`document.querySelector('[data-item=${item.id}]').click()`);
     await wait(150);

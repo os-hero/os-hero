@@ -36,6 +36,15 @@ function paintBackground(theme) {
     for (const x of [2, 6, 31, 35]) rect(x, H - 1, 3, 1, dark);
   };
   switch (theme) {
+    case "star_meadow":
+      rect(0, 0, W, H, "#91ABC4");
+      for (const [x, y] of [[3, 4], [7, 7], [29, 3], [35, 8]]) {
+        rect(x, y, 1, 3, "#F2E4A6"); rect(x - 1, y + 1, 3, 1, "#F2E4A6");
+      }
+      hill(16, "#71988F"); hill(20, "#5C8F7B", 2);
+      grass(23, "#ABC997", "#E4E8AF", "#7CA58C");
+      for (const x of [2, 5, 32, 36]) { rect(x, 21, 1, 2, "#D7DF9C"); rect(x, 20, 1, 1, "#F5E8B1"); }
+      break;
     case "meadow":
       rect(0, 0, W, H, "#83C9E5"); cloud(10, 3); cloud(26, 6);
       hill(15, "#93BC9A"); hill(18, "#70A98B", 2);

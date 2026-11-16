@@ -4,6 +4,8 @@ const { createHash } = require("node:crypto");
 const { ITEMS, defaultCharacter, equipItem, normalizeCharacter, getItemById } = require("../src/shared/catalog");
 const { HAIR_IDS, HAIR_COLORS, wardrobeMessages } = require("../src/shared/wardrobe");
 const { backgroundMessages } = require("../src/shared/backgrounds");
+const { LOOT_ITEMS } = require("../src/shared/loot");
+const lootIds = LOOT_ITEMS.map(item => item.id);
 const { IDLE_POSES, renderCharacterLayers, renderCharacterBuffer, renderTrayCharacterBuffer } = require("../src/main/pixelRenderer");
 
 const NEW_IDS = ["twin_buns", "wave_bob", "berry_beret", "studio_headphones", "workshop_apron", "raincoat", "bedroll_pack", "flower_basket", "camp_lantern", "big_paintbrush", "background_rain_cafe", "background_glasshouse"];
@@ -11,7 +13,7 @@ const pixel = (grid, x, y) => grid[y * 24 + x];
 const compose = layers => layers[0].map((_, i) => layers.reduce((rgba, layer) => layer[i][3] ? layer[i] : rgba, [0, 0, 0, 0]));
 
 test("exactly the twelve approved items are starter-owned, localized and slot-independent", () => {
-  assert.equal(ITEMS.length, 90);
+  assert.equal(ITEMS.length, 90 + lootIds.length);
   assert.equal(new Set(ITEMS.map(item => item.id)).size, ITEMS.length);
   const base = { ...defaultCharacter("1.6.3"), hairColor: "#714D38", bodyColor: "#FFE6BD" };
   for (const id of NEW_IDS) {
@@ -27,11 +29,11 @@ test("exactly the twelve approved items are starter-owned, localized and slot-in
       assert.ok(messages[`item.${id}`].length > 0);
     }
   }
-  assert.deepEqual(ITEMS.filter(item => !item.owned).map(item => item.id), ["expedition_star_hat", "expedition_cloak", "expedition_sword"]);
+  assert.deepEqual(ITEMS.filter(item => !item.owned && !lootIds.includes(item.id)).map(item => item.id), ["expedition_star_hat", "expedition_cloak", "expedition_sword"]);
 });
 
 test("all 78 pre-existing items retain exact metadata, Hero and both native tray representations", () => {
-  const legacy = ITEMS.filter(item => !NEW_IDS.includes(item.id));
+  const legacy = ITEMS.filter(item => !NEW_IDS.includes(item.id) && !lootIds.includes(item.id));
   assert.equal(legacy.length, 78);
   const hash = createHash("sha256");
   for (const item of legacy) {

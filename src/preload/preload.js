@@ -19,6 +19,7 @@ const api = {
     return () => { ipcRenderer.removeListener("tray:capture-session", listener); };
   },
   expeditionAction: (payload) => ipcRenderer.invoke("expedition:action", payload),
+  buyAdventureItem: (id) => ipcRenderer.invoke("adventure:buy", id),
   onExpeditionState: (callback) => {
     const listener = (_event, expedition) => callback(expedition);
     ipcRenderer.on("expedition:changed", listener);

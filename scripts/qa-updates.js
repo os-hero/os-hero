@@ -84,17 +84,18 @@ async function run({ panel, app, profile, output, check, capture, wait, qaUpdate
   await go("quests"); await js("document.getElementById('cancel-quest-button').click()");
   check("quest cancellation removes the pending draft before restart", await until("questRoute.mode==='list' && !hasUnsavedTrayChanges()"));
   await go("updates");
-  fs.mkdirSync(path.join(profile,"expedition.json.tmp"));
+  fs.mkdirSync(path.join(profile,"progression.json.tmp"));
   const beforeFailure = await js("({route:trayRoute,hasUnsavedChanges:hasUnsavedTrayChanges(),draft:customizationDraft,formValues:structuredClone(trayUi.formValues)})");
   check("save-failure fixture starts with no unsaved drafts", beforeFailure.hasUnsavedChanges === false);
   const failureResult = await js("window.osHeroApi.restartForUpdate()");
   const afterFailure = await js("({route:trayRoute,hasUnsavedChanges:hasUnsavedTrayChanges(),draft:customizationDraft,formValues:structuredClone(trayUi.formValues),update:state.update})");
   fs.writeFileSync(path.join(output, "qa-update-save-failure-snapshot.json"), JSON.stringify({ beforeFailure, failureResult, afterFailure, installs: qa.installs, dialogs: qa.dialogs }, null, 2));
   check("failed progress save leaves app open and update retryable", qa.installs === 0 && failureResult.error === "update.saveFailed" && await until("state.update.error==='update.saveFailed'"));
-  fs.rmdirSync(path.join(profile,"expedition.json.tmp"));
+  fs.rmdirSync(path.join(profile,"progression.json.tmp"));
+  await js("window.osHeroApi.registerHero({name:'QA',gender:state.character.gender,bodyColor:state.character.bodyColor,eyeType:state.character.eyeType,hair:state.character.equipped.hair,hairColor:state.character.hairColor})");
   await js("window.osHeroApi.expeditionAction({action:'start'})"); await wait(150);
   await js("window.osHeroApi.restartForUpdate()");
-  check("explicit restart prepares durable paused expedition then installs once", qa.installs === 1 && JSON.parse(fs.readFileSync(path.join(profile,"expedition.json"))).running === false);
+  check("explicit restart saves paused checkpoint with resume intent then installs once", qa.installs === 1 && JSON.parse(fs.readFileSync(path.join(profile,"progression.json"))).expedition.running === false && JSON.parse(fs.readFileSync(path.join(profile,"progression.json"))).expedition.runIntent === true);
   await js("window.osHeroApi.restartForUpdate()"); check("repeated restart cannot invoke installer twice", qa.installs === 1);
 }
 module.exports = { prepare, run };

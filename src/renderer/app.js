@@ -1267,13 +1267,16 @@ async function main() {
 
   stateUnsubscribe = api.onAppState((nextState) => {
     const unchanged = JSON.stringify(state.character) === JSON.stringify(nextState.character) && state.settings.language === nextState.settings.language;
+    const itemsChanged = JSON.stringify(state.items.map(item => item.id)) !== JSON.stringify(nextState.items.map(item => item.id));
     const growthChanged = state.expedition?.adventure?.xp !== nextState.expedition?.adventure?.xp || state.expedition?.adventure?.victories !== nextState.expedition?.adventure?.victories || state.expedition?.adventure?.defeats !== nextState.expedition?.adventure?.defeats;
     captureTrayUi();
     state = nextState;
     applyHeroMotion(state.hero.motion);
     paintCanonicalHero();
+    updateInventoryGoldDisplay();
     if (currentView() === "customization" && unchanged && (!state.character.identity || !growthChanged)) return;
-    if (currentView() === "inventory" && unchanged) return;
+    if (currentView() === "inventory" && unchanged && !itemsChanged) return;
+    if (currentView() === "companion" && unchanged) { updateAdventureProgress(); return; }
     renderCurrentView();
   });
   updateUnsubscribe = api.onUpdateState((update) => refreshUpdatePanel(update));

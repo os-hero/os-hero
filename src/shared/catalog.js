@@ -761,9 +761,16 @@ for (const item of ITEMS) {
 }
 ITEMS.push(...WARDROBE_ITEMS);
 ITEMS.push(...BACKGROUND_ITEMS);
+ITEMS.push(
+  { id: "meadow_crown", name: "Moss Star Crown", category: "head", slot: "head", owned: false, style: { primary: "#67996D", accent: "#F2D16F" } },
+  { id: "moon_coat", name: "Moon Coat", category: "clothes", slot: "clothes", owned: false, renderStyle: "rune_coat", style: { shirt: "#637AAC", pants: "#344553", accent: "#EFDEA2", trim: "#BFDCDC" } },
+  { id: "leaf_cape", name: "Leaf Cape", category: "back", slot: "back", owned: false, style: { primary: "#5C9A80", accent: "#C2D98C" } },
+  { id: "firefly_lantern", name: "Firefly Lantern", category: "tool", slot: "tool", owned: false, style: { primary: "#608B79", accent: "#E6EF95" } },
+  { id: "meadow_badge", name: "Meadow Mark", category: "face", slot: "face", owned: false, style: { primary: "#4B886C", accent: "#F1D66B" } }
+);
 for (const item of ITEMS.filter((entry) => entry.slot === "head")) {
   item.hairFit = ["knight_helmet", "horned_helm", "ninja_hood"].includes(item.id) ? "cover"
-    : ["gold_crown", "silver_circlet", "studio_headphones"].includes(item.id) ? "band" : "cap";
+    : ["gold_crown", "silver_circlet", "studio_headphones", "meadow_crown"].includes(item.id) ? "band" : "cap";
 }
 
 function isValidHexColor(value) {

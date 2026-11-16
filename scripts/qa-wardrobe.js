@@ -8,7 +8,7 @@ module.exports = async function ({ panel, BrowserWindow, profile, output, check,
   const original = fs.readFileSync(path.join(profile, "character.json"), "utf8");
   let state = await js("window.osHeroApi.getState()");
   check("legacy head and tool slots migrate in memory", state.character.equipped.hair === "long_hair" && state.character.equipped.back === "small_bag" && !state.character.equipped.head && !state.character.equipped.tool);
-  check("all starter wardrobe items and backgrounds retained", state.items.length === ITEMS.filter(item => item.owned).length);
+  check("all starter wardrobe items and retired time rewards retained", state.items.length === ITEMS.filter(item => item.owned).length + 3);
   await js("window.osHeroApi.openTrayView('inventory')");
   await wait(250);
   const inventory = panel;

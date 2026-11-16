@@ -98,12 +98,14 @@ module.exports = async function ({ panel, BrowserWindow, app, profile, output, c
     }
   }
   await js("window.osHeroApi.setLanguage('ko')");
-  const files = ["character.json","settings.json","quests.json","wallet.json","expedition.json"];
+  const files = ["character.json","settings.json","quests.json","wallet.json","expedition.json","progression.json"];
   const fixture = Object.fromEntries(files.map(file=>[file,JSON.parse(fs.readFileSync(path.join(profile,file)))]));
   // Seed a near-completion checkpoint to exercise the real timer and atomic event save on restart.
-  fixture["expedition.json"].adventure.elapsedMs = 179500;
-  fixture["expedition.json"].progress.expedition_star_hat = 75 * 60000 - 500;
-  fixture["expedition.json"].running = true;
+  const p = fixture["progression.json"];
+  p.expedition.adventure.elapsedMs = 29500;
+  p.expedition.adventure.pity = 79;
+  p.expedition.running = false;
+  p.expedition.runIntent = false;
   fs.writeFileSync(path.join(output,"hero-restart-fixture.json"),JSON.stringify(fixture));
 };
 
@@ -133,21 +135,21 @@ module.exports.restart = async function ({panel,profile,output,check,wait,captur
   const js=code=>panel.webContents.executeJavaScript(code,true);
   let state=await js("window.osHeroApi.getState()");
   check("identity and inventory dye survive full restart", state.character.identity.name==='모모' && state.character.equipped.hair==='princess_hair' && state.character.hairColor==='#714D38');
-  check("restart gives no offline credit and never resumes automatically", !state.expedition.running && state.expedition.adventure.elapsedMs===179500 && state.expedition.adventure.victories===0);
-  const before=JSON.stringify({character:state.character,quests:state.quests,gold:state.wallet.gold});
-  fs.mkdirSync(path.join(profile,"expedition.json.tmp"));
+  check("manual pause survives restart with no offline credit", !state.expedition.running && state.expedition.adventure.elapsedMs===29500 && state.expedition.adventure.victories===0);
+  const before=JSON.stringify({character:state.character,quests:state.quests});
+  fs.mkdirSync(path.join(profile,"progression.json.tmp"));
   check("failed combat start cannot publish running state", await js("window.osHeroApi.expeditionAction({action:'start'}).then(()=>false,()=>true)"));
   check("failed combat start retains checkpoint", !(await js("window.osHeroApi.getState()")).expedition.running);
-  fs.rmdirSync(path.join(profile,"expedition.json.tmp"));
+  fs.rmdirSync(path.join(profile,"progression.json.tmp"));
   await js("navigateTray('customization')");
   await js("window.osHeroApi.expeditionAction({action:'start'})"); await wait(1400);
   await js("window.osHeroApi.expeditionAction({action:'pause'})");
   state=await js("window.osHeroApi.getState()");
-  const saved=JSON.parse(fs.readFileSync(path.join(profile,"expedition.json")));
-  check("one real timer completion saves XP, stage, history together", saved.adventure.victories===1 && saved.adventure.xp===21 && saved.adventure.stage===1 && saved.adventure.journal.length===1);
-  check("simultaneous cosmetic and combat completion update one checkpoint", saved.unlocked.includes("expedition_star_hat") && state.items.some(item=>item.id==="expedition_star_hat"));
-  check("combat cannot mutate appearance, quests or gold", JSON.stringify({character:state.character,quests:state.quests,gold:state.wallet.gold})===before);
+  const saved=JSON.parse(fs.readFileSync(path.join(profile,"progression.json")));
+  check("one real timer completion saves XP, gold, count and history together", saved.expedition.adventure.victories===1 && saved.expedition.adventure.xp===7 && saved.expedition.adventure.counts[0]===1 && saved.expedition.adventure.journal.length===1 && saved.wallet.gold>17);
+  check("guaranteed cosmetic and combat completion update one checkpoint", saved.expedition.adventure.lastReward.itemId && state.items.some(item=>item.id===saved.expedition.adventure.lastReward.itemId));
+  check("combat cannot mutate appearance or quests", JSON.stringify({character:state.character,quests:state.quests})===before);
   await wait(100);
-  check("profile reads new XP and journal without restart", await js("document.getElementById('hero-xp-value').textContent==='21 / 100' && document.querySelectorAll('.hero-journal li').length===2"));
+  check("profile reads new XP and journal without restart", await js("document.getElementById('hero-xp-value').textContent==='7 / 100' && document.querySelectorAll('.hero-journal li').length===2"));
   await capture(panel,"hero-profile-after-victory.png");
 };

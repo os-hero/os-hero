@@ -20,7 +20,9 @@ const { CpuMonitor } = require("./cpu");
 const { AppStore } = require("./store");
 const { IDLE_POSES, renderCharacterDataUrl, renderSceneDataUrl, renderItemDataUrl } = require("./pixelRenderer");
 const { createTrayImage } = require("./trayImage");
-const { REWARDS, dayKey, normalizeExpedition, changeExpedition, advanceExpedition, publicExpedition } = require("../shared/expedition");
+const { advanceProgression, changeProgression, publicProgression } = require("../shared/progression");
+const { LOOT_ITEMS } = require("../shared/loot");
+const { lootMessages } = require("../shared/lootMessages");
 const { companionMessages } = require("../shared/companionMessages");
 const { HAIR_COLORS, wardrobeMessages } = require("../shared/wardrobe");
 const { backgroundMessages } = require("../shared/backgrounds");
@@ -30,7 +32,6 @@ const { TrayAnimator } = require("./trayAnimator");
 const { UpdateManager } = require("./updater");
 const { updateMessages } = require("../shared/updateMessages");
 const { heroName, heroRegistrationMode } = require("../shared/heroIdentity");
-const { newAdventure, selectStage } = require("../shared/adventure");
 const { heroMessages } = require("../shared/heroMessages");
 const {
   EYE_TYPES,
@@ -68,10 +69,6 @@ const APP_NAME = "OS Hero";
 const LEGACY_APP_NAME = "OS Boy";
 const DEVELOPER = "이충복";
 const CONTACT = "themercenary@duck.com";
-const OS_GOLD_MAX = 999_999_999;
-const OS_GOLD_SECONDS_PER_GOLD = 5 * 60;
-const OS_GOLD_TICK_MS = 30 * 1000;
-const OS_GOLD_MAX_TICK_SECONDS = 60;
 const TRAY_PANEL_IDLE_DESTROY_MS = 10 * 1000;
 
 app.disableHardwareAcceleration();
@@ -98,6 +95,10 @@ let settings = null;
 let quests = [];
 let wallet = null;
 let expedition = null;
+let progression = null;
+let progressionError = false;
+let systemLocked = false;
+let systemSuspended = false;
 let expeditionTimer = null;
 let expeditionTickAt = 0;
 let expeditionSavedAt = 0;
@@ -106,8 +107,6 @@ let updateManager = null;
 let firstRunPending = false;
 let isQuitting = false;
 let exitPreparation = null;
-let runtimeGoldTimer = null;
-let lastRuntimeGoldTickAt = 0;
 const reminderTimers = new Map();
 
 const windows = new Map();
@@ -212,7 +211,7 @@ function getPublicState() {
       version: currentVersion()
     },
     languageOptions: LANGUAGE_OPTIONS,
-    messages: { ...getMessages(language), ...companionMessages(language), ...wardrobeMessages(language), ...backgroundMessages(language), ...updateMessages(language), ...heroMessages(language) },
+    messages: { ...getMessages(language), ...companionMessages(language), ...wardrobeMessages(language), ...backgroundMessages(language), ...updateMessages(language), ...heroMessages(language), ...lootMessages(language) },
     hairColors: HAIR_COLORS,
     itemThumbnails,
     eyeTypes: EYE_TYPES,
@@ -247,10 +246,10 @@ function getHeroPresentation() {
   return { ...heroPresentation, motion: { ...(trayAnimator?.getMotion() || { kind: "idle", frame: 0, intervalMs: 1000 * IDLE_POSES[0].duration, cycleMs: 4000 }), characterKey: key } };
 }
 
-const rewardThumbnails = Object.fromEntries(REWARDS.map(({ id }) => [id, renderItemDataUrl(id)]));
+const rewardThumbnails = Object.fromEntries(LOOT_ITEMS.map(({ id }) => [id, renderItemDataUrl(id)]));
 const itemThumbnails = Object.fromEntries(ITEMS.map(({ id }) => [id, renderItemDataUrl(id)]));
 function getExpeditionState() {
-  return expedition ? { ...publicExpedition(expedition), thumbnails: rewardThumbnails, clockBlocked: dayKey() < expedition.day } : null;
+  return progression ? { ...publicProgression(progression), thumbnails: rewardThumbnails, saveError: progressionError, systemPaused: systemLocked || systemSuspended } : null;
 }
 
 function notifyExpedition() {
@@ -259,31 +258,35 @@ function notifyExpedition() {
   }
 }
 
-function persistExpedition(next) {
-  store.saveExpedition(next);
-  expedition = next;
+function persistProgression(next) {
+  store.saveProgression(next);
+  progression = next;
+  expedition = next.expedition;
+  wallet = next.wallet;
+  progressionError = false;
   expeditionSavedAt = performance.now();
 }
 
 function settleExpedition(forceSave = false) {
   const now = performance.now();
-  const next = advanceExpedition(expedition, now - expeditionTickAt);
+  const next = advanceProgression(progression, now - expeditionTickAt);
   expeditionTickAt = now;
-  const unlocked = next.unlocked.length !== expedition.unlocked.length;
-  const stopped = expedition.running && !next.running;
-  const battleCompleted = next.adventure?.victories !== expedition.adventure?.victories || next.adventure?.defeats !== expedition.adventure?.defeats;
+  const unlocked = next.expedition.unlocked.length !== expedition.unlocked.length;
+  const battleCompleted = next.expedition.adventure.victories !== expedition.adventure.victories || next.expedition.adventure.defeats !== expedition.adventure.defeats;
   try {
-    if (forceSave || unlocked || stopped || battleCompleted || now - expeditionSavedAt >= 15000) persistExpedition(next);
-    else expedition = next;
+    if (forceSave || unlocked || battleCompleted || now - expeditionSavedAt >= 15000) persistProgression(next);
+    else { progression = next; expedition = next.expedition; }
   } catch (error) {
-    // Never publish an unlock unless its progress and entitlement were saved together.
-    expedition = { ...expedition, running: false };
+    // Failed results remain unpublished; a retry starts from the same saved random state.
+    progression = { ...progression, expedition: { ...expedition, running: false } };
+    expedition = progression.expedition;
+    progressionError = true;
     stopExpeditionTimer();
     notifyExpedition();
     throw error;
   }
   if (!expedition.running) stopExpeditionTimer();
-  if (unlocked) notifyAppState();
+  if (unlocked || battleCompleted) notifyAppState();
   else notifyExpedition();
 }
 
@@ -292,20 +295,48 @@ function stopExpeditionTimer() {
   expeditionTimer = null;
 }
 
-function runExpeditionAction(action, targetId) {
-  if (expedition.running) settleExpedition(true);
-  if (action === "start" && character.identity && !expedition.adventure) persistExpedition({ ...expedition, adventure: newAdventure() });
-  persistExpedition(changeExpedition(expedition, action, targetId));
+function refreshExpeditionTimer() {
   stopExpeditionTimer();
-  if (expedition.running) {
-    expeditionTickAt = performance.now();
-    expeditionTimer = setInterval(() => {
-      try { settleExpedition(); } catch { console.error("Expedition checkpoint failed; paused."); }
-    }, 1000);
-    expeditionTimer.unref();
-  }
-  notifyExpedition();
+  if (!expedition.running) return;
+  expeditionTickAt = performance.now();
+  expeditionTimer = setInterval(() => {
+    try { settleExpedition(); } catch { console.error("Progression checkpoint failed; paused."); }
+  }, 1000);
+  expeditionTimer.unref();
+}
+
+function runExpeditionAction(action, value) {
+  if (!character.identity && action !== "pause") throw new Error("Register your Hero first");
+  if (action === "start" && (systemLocked || systemSuspended)) throw new Error("System is paused");
+  // Validate before settling: malformed commands cannot change a running session.
+  changeProgression(progression, action, value);
+  if (expedition.running) settleExpedition(true);
+  persistProgression(changeProgression(progression, action, value));
+  refreshExpeditionTimer();
+  notifyAppState();
   return getExpeditionState();
+}
+
+function systemPause() {
+  try {
+    if (expedition.running) settleExpedition(true);
+    persistProgression({ ...progression, expedition: { ...expedition, running: false } });
+  } catch {
+    progressionError = true;
+    progression = { ...progression, expedition: { ...expedition, running: false } };
+    expedition = progression.expedition;
+  }
+  stopExpeditionTimer();
+  notifyExpedition();
+}
+
+function systemResume() {
+  if (systemLocked || systemSuspended || !character.identity || !expedition.runIntent || progressionError) return;
+  try {
+    persistProgression({ ...progression, expedition: { ...expedition, running: true } });
+    refreshExpeditionTimer();
+  } catch { progressionError = true; }
+  notifyExpedition();
 }
 
 function migrateLegacyUserDataIfNeeded() {
@@ -344,120 +375,6 @@ function notifyAppState() {
     if (!browserWindow.isDestroyed()) {
       browserWindow.webContents.send("state:changed", publicState);
     }
-  }
-}
-
-function notifyWalletState() {
-  for (const browserWindow of BrowserWindow.getAllWindows()) {
-    if (!browserWindow.isDestroyed()) {
-      browserWindow.webContents.send("wallet:changed", wallet);
-    }
-  }
-}
-
-function clampGold(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) {
-    return 0;
-  }
-
-  return Math.min(OS_GOLD_MAX, Math.max(0, Math.floor(number)));
-}
-
-function normalizeWallet(input) {
-  const source = input && typeof input === "object" ? input : {};
-  const remainder = Number(source.runtimeSecondsRemainder);
-
-  return {
-    version: currentVersion(),
-    gold: clampGold(source.gold),
-    runtimeSecondsRemainder: Number.isFinite(remainder)
-      ? Math.min(OS_GOLD_SECONDS_PER_GOLD - 1, Math.max(0, Math.floor(remainder)))
-      : 0,
-    updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : new Date().toISOString()
-  };
-}
-
-function saveWallet(nextWallet, options = {}) {
-  wallet = normalizeWallet({
-    ...nextWallet,
-    updatedAt: new Date().toISOString()
-  });
-  store.saveWallet(wallet);
-
-  if (options.notify !== false) {
-    notifyWalletState();
-  }
-
-  return wallet;
-}
-
-function creditRuntimeGoldSeconds(seconds) {
-  if (!wallet || wallet.gold >= OS_GOLD_MAX) {
-    return wallet;
-  }
-
-  const elapsedSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
-  if (elapsedSeconds <= 0) {
-    return wallet;
-  }
-
-  const previousGold = wallet.gold;
-  const totalRuntimeSeconds = wallet.runtimeSecondsRemainder + elapsedSeconds;
-  const earnedGold = Math.floor(totalRuntimeSeconds / OS_GOLD_SECONDS_PER_GOLD);
-  const nextGold = clampGold(previousGold + earnedGold);
-  const capped = nextGold >= OS_GOLD_MAX;
-
-  saveWallet(
-    {
-      ...wallet,
-      gold: nextGold,
-      runtimeSecondsRemainder: capped ? 0 : totalRuntimeSeconds % OS_GOLD_SECONDS_PER_GOLD
-    },
-    { notify: false }
-  );
-
-  if (nextGold !== previousGold) {
-    notifyWalletState();
-  }
-
-  return wallet;
-}
-
-function settleRuntimeGold() {
-  if (expedition && dayKey() !== expedition.day) {
-    try {
-      persistExpedition(advanceExpedition(expedition, 0));
-      notifyExpedition();
-    } catch { console.error("Could not refresh expedition date."); }
-  }
-  const now = Date.now();
-  if (!lastRuntimeGoldTickAt) {
-    lastRuntimeGoldTickAt = now;
-    return wallet;
-  }
-
-  const elapsedSeconds = Math.floor((now - lastRuntimeGoldTickAt) / 1000);
-  if (elapsedSeconds <= 0) {
-    return wallet;
-  }
-
-  const creditedSeconds = Math.min(elapsedSeconds, OS_GOLD_MAX_TICK_SECONDS);
-  lastRuntimeGoldTickAt =
-    elapsedSeconds > OS_GOLD_MAX_TICK_SECONDS ? now : lastRuntimeGoldTickAt + elapsedSeconds * 1000;
-
-  return creditRuntimeGoldSeconds(creditedSeconds);
-}
-
-function startRuntimeGoldTimer() {
-  lastRuntimeGoldTickAt = Date.now();
-  runtimeGoldTimer = setInterval(settleRuntimeGold, OS_GOLD_TICK_MS);
-}
-
-function stopRuntimeGoldTimer() {
-  if (runtimeGoldTimer) {
-    clearInterval(runtimeGoldTimer);
-    runtimeGoldTimer = null;
   }
 }
 
@@ -1023,19 +940,12 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle("expedition:action", (_event, payload) => {
-    if (!payload || !["start", "pause", "select"].includes(payload.action)) throw new Error("Invalid expedition action");
-    if (payload.action === "select" && !REWARDS.some(({ id }) => id === payload.targetId)) throw new Error("Unknown reward");
-    return runExpeditionAction(payload.action, payload.targetId);
+    if (!payload || !["start", "pause", "mode"].includes(payload.action)) throw new Error("Invalid expedition action");
+    return runExpeditionAction(payload.action, payload.mode);
   });
 
-  ipcMain.handle("adventure:select-stage", (_event, stage) => {
-    if (!character.identity) throw new Error("Register your Hero first");
-    selectStage(expedition.adventure || newAdventure(), stage);
-    if (expedition.running) runExpeditionAction("pause");
-    persistExpedition({ ...expedition, adventure: selectStage(expedition.adventure || newAdventure(), stage) });
-    notifyExpedition();
-    return getExpeditionState();
-  });
+  ipcMain.handle("adventure:select-stage", (_event, stage) => runExpeditionAction("stage", stage));
+  ipcMain.handle("adventure:buy", (_event, id) => { runExpeditionAction("buy", id); return getPublicState(); });
 
   ipcMain.handle("hero:register", (_event, draft) => {
     if (character.identity) return getPublicState();
@@ -1258,10 +1168,8 @@ async function prepareExit(restart) {
       if (result.response !== 1) return false;
     }
     // Complete durable writes before Squirrel is allowed to close any windows.
-    if (expedition?.running) runExpeditionAction("pause");
-    else if (expedition) persistExpedition(expedition);
-    settleRuntimeGold();
-    if (wallet) store.saveWallet(wallet);
+    if (expedition?.running) settleExpedition(true);
+    if (expedition) persistProgression({ ...progression, expedition: { ...expedition, running: false } });
     isQuitting = true;
     return true;
   })().finally(() => { exitPreparation = null; });
@@ -1301,11 +1209,10 @@ function bootstrap() {
   quests = normalizeQuests(store.loadQuests(), currentVersion());
   store.saveQuests(quests);
 
-  wallet = normalizeWallet(store.loadWallet());
-  store.saveWallet(wallet);
-
-  expedition = normalizeExpedition(store.loadExpedition());
-  persistExpedition(expedition);
+  progression = store.loadProgression(crypto.randomBytes(4).readUInt32LE() || 1);
+  systemLocked = powerMonitor.getSystemIdleState(1) === "locked";
+  persistProgression({ ...progression, expedition: { ...progression.expedition,
+    running: Boolean(character.identity && progression.expedition.runIntent && !systemLocked) } });
   for (const [slot, id] of Object.entries(character.equipped)) {
     if (id && !ownsItem(id)) character = unequipSlot(character, slot);
   }
@@ -1333,18 +1240,17 @@ function bootstrap() {
   }
   scheduleAllReminders();
   createTray();
-  startRuntimeGoldTimer();
+  refreshExpeditionTimer();
   powerMonitor.on("suspend", () => {
-    if (expedition?.running) {
-      try { runExpeditionAction("pause"); } catch { console.error("Could not save expedition on suspend."); }
-    }
+    systemSuspended = true;
+    systemPause();
   });
-  powerMonitor.on("resume", () => { if (expedition) notifyExpedition(); void updateManager.checkIfDue(); });
+  powerMonitor.on("resume", () => { systemSuspended = false; systemResume(); void updateManager.checkIfDue(); });
   powerMonitor.on("lock-screen", () => {
-    if (expedition?.running) {
-      try { runExpeditionAction("pause"); } catch { console.error("Could not save expedition on lock."); }
-    }
+    systemLocked = true;
+    systemPause();
   });
+  powerMonitor.on("unlock-screen", () => { systemLocked = false; systemResume(); });
 
   if (process.platform === "darwin" && app.dock) {
     app.dock.hide();
@@ -1370,7 +1276,11 @@ if (!gotSingleInstanceLock) {
     }
   });
 
-  app.whenReady().then(bootstrap);
+  app.whenReady().then(bootstrap).catch(() => {
+    stopExpeditionTimer();
+    dialog.showErrorBox("OS Hero", lootMessages(currentLanguage())["loot.loadFailed"]);
+    app.exit(1);
+  });
 
   app.on("before-quit", (event) => {
     if (!isQuitting && store) { event.preventDefault(); void requestQuit(); return; }
@@ -1383,7 +1293,6 @@ if (!gotSingleInstanceLock) {
     if (cpuMonitor) {
       cpuMonitor.stop();
     }
-    stopRuntimeGoldTimer();
     for (const questId of Array.from(reminderTimers.keys())) {
       cancelReminder(questId);
     }

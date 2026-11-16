@@ -1,0 +1,42 @@
+{
+  "version": "1.8.0",
+  "copy": {
+    "ko": {
+      "summary": "몬스터를 처치하며 성장하고, 초원의 전리품으로 나만의 히어로를 꾸미세요.",
+      "notes": [
+        "시간이 지나면 받던 보상을 몬스터 처치 보상으로 개편했습니다. 처치마다 랜덤 골드와 경험치를 받고, 경험치가 쌓이면 자동으로 레벨업합니다.",
+        "초원 8개 단계에서 일반 몬스터 4마리와 정예 또는 보스를 처치하면 다음 단계가 열립니다. 다음 단계 자동 진행과 현재 단계 반복을 선택할 수 있으며, 패배해도 골드나 아이템을 잃지 않습니다.",
+        "신규 꾸미기 아이템 6종을 추가했습니다. 희귀 추첨률은 일반 1%, 정예 4%, 보스 8%이며 최대 80회 처치 내 희귀 보상을 보장합니다. 미보유 아이템을 우선 지급하고, 모두 보유하면 추가 골드를 받습니다. 첫 지역 완료 보상과 희귀 아이템 정가 구매도 제공합니다.",
+        "하루 탐험 제한을 없앴습니다. 앱 실행·화면 잠금 해제 중 계속 진행하며 종료·잠금·절전 중에는 진행하지 않습니다. 입력 감시나 오프라인 보상은 추가하지 않았습니다.",
+        "기존 히어로·외형·아이템·골드·퀘스트·해금 단계와 레벨 진행률을 유지합니다. 이전 원장을 백업하고 보상을 하나의 원장에 저장합니다. 기존 시간 보상 3종은 기본 제공으로 전환하며 새 아이템을 자동 장착하지 않습니다.",
+        "인벤토리의 중첩 스크롤을 없애고 창 크기에 따라 목록 또는 페이지 하나만 스크롤하도록 개선했습니다. 동일한 히어로 외형, CPU 연동 숨쉬기와 고정 크기 팝업은 유지합니다."
+      ]
+    },
+    "en": {
+      "summary": "Grow through monster encounters and personalize your Hero with meadow loot.",
+      "notes": [
+        "Monster victories replace elapsed-time payouts with random gold and XP. Your Hero levels up automatically when enough XP is earned.",
+        "Clear four normal enemies and an elite or boss to unlock the next of eight meadow stages. Choose automatic advance or repeat the current stage. Defeat never removes gold or equipment.",
+        "Add six cosmetics. Rare rolls are 1% for normal enemies, 4% for elites and 8% for bosses, with a rare reward guaranteed within 80 victories. Unowned items are selected first; a completed collection receives bonus gold instead. First-region rewards and fixed-price rare purchases are also available.",
+        "Remove the daily exploration limit. Progress continues while the app is running and the screen is unlocked, but stops during quit, lock and sleep. No input monitoring or offline rewards are added.",
+        "Preserve existing Hero appearance, items, gold, quests, unlocked stages and level progress. Back up legacy records and save rewards in one progression ledger. The three former timed rewards become starter items; new loot is never automatically equipped.",
+        "Replace nested Inventory scrolling with one list or page scroller according to window size. Shared Hero artwork, CPU-linked breathing and fixed popup bounds remain unchanged."
+      ]
+    },
+    "zh": {
+      "summary": "通过击败怪物成长，用草原战利品打造专属英雄。",
+      "notes": [
+        "将按时间发放的奖励改为击败怪物后获得随机金币与经验，经验达到要求时自动升级。",
+        "草原共有八个关卡，每关击败四个普通怪物和一个精英或首领后解锁下一关。可选择自动前进或重复当前关卡，失败不会失去金币或装备。",
+        "新增六种装扮。普通、精英、首领的稀有奖励概率分别为1%、4%、8%，最多80次胜利内必得一次稀有奖励。优先获得未拥有的物品，全部收集后改为额外金币。另有首次区域通关奖励和稀有物品定价购买。",
+        "取消每日探索上限。应用运行且屏幕解锁时持续推进，退出、锁屏或休眠时停止。不新增输入监控或离线奖励。",
+        "保留现有英雄外观、物品、金币、任务、已解锁关卡与等级进度。备份旧记录后使用统一进度账本保存奖励。原有三种计时奖励改为默认拥有，新物品不会自动装备。",
+        "移除背包嵌套滚动，根据窗口尺寸仅使用列表或页面滚动。保留统一英雄外观、CPU联动呼吸和固定弹窗尺寸。"
+      ]
+    }
+  },
+  "installation": {
+    "en": "Apple Silicon macOS 12 or later. Signed 1.3.x and later clients use the existing stable channel without forced restart. Old ad-hoc 1.2.0 may require one manual DMG installation. Keep application data. After progression migration, do not overwrite the app with 1.7.x or older; recovery requires a compatible fix or an explicitly approved backup restore.",
+    "ko": "Apple Silicon, macOS 12 이상용입니다. 정식 서명된 1.3.x 이상은 기존 안정 채널로 업데이트하며 사용 중 강제 재시작하지 않습니다. 과거 임시 서명 1.2.0은 DMG 직접 설치가 필요할 수 있습니다. 앱 데이터를 삭제하지 마세요. 새 성장 원장으로 이전한 뒤 1.7.x 이하 앱으로 임의 다운그레이드하지 마세요. 복구 시 호환 수정본 또는 명시적으로 승인한 백업 복원이 필요합니다."
+  }
+}

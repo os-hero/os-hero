@@ -25,7 +25,7 @@ const setTrayImage = Tray.prototype.setImage;
 Tray.prototype.setImage = function (image) { qaTrayImage = image; return setTrayImage.call(this, image); };
 const { defaultCharacter } = require("../src/shared/catalog");
 const { normalizeExpedition, dayKey } = require("../src/shared/expedition");
-const scenario = ["hero-new", "hero-new-restart", "hero-rpg", "hero-restart", "idle", "unequip-restart", "unequip", "backgrounds", "updates", "tray-shell", "inventory-layout", "guild", "wardrobe", "restart", "completion"].find(name => process.argv.includes(`--${name}`)) || "flow";
+const scenario = ["loot", "loot-restart", "loot-failure", "loot-shop", "hero-new", "hero-new-restart", "hero-rpg", "hero-restart", "idle", "unequip-restart", "unequip", "backgrounds", "updates", "tray-shell", "inventory-layout", "guild", "wardrobe", "restart", "completion"].find(name => process.argv.includes(`--${name}`)) || "loot";
 const profile = process.env.OS_HERO_QA_PROFILE || fs.mkdtempSync(path.join(os.tmpdir(), "oshero-qa-"));
 const output = path.resolve(process.env.OS_HERO_QA_OUTPUT || path.resolve(__dirname, `../review-artifacts/${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })}`));
 fs.mkdirSync(output, { recursive: true });
@@ -71,6 +71,7 @@ write("quests.json", { quests: [
 ] });
 const initialExpedition = normalizeExpedition({ day: dayKey(), progress: { expedition_star_hat: scenario === "completion" ? 75 * 60000 - 500 : 50 * 60000 } });
 write("expedition.json", initialExpedition);
+if (scenario.startsWith("loot")) require("./qa-loot").prepare({ scenario, profile, output, write, base });
 if (["restart", "unequip-restart", "hero-restart", "hero-new-restart"].includes(scenario)) {
   const saved = JSON.parse(fs.readFileSync(path.join(output, scenario === "hero-new-restart" ? "hero-new-fixture.json" : scenario === "hero-restart" ? "hero-restart-fixture.json" : scenario === "restart" ? "restart-fixture.json" : "unequip-restart-fixture.json")));
   for (const [file, data] of Object.entries(saved)) write(file, data);
@@ -83,6 +84,7 @@ app.on("web-contents-created", (_event, contents) => {
 });
 const qaUpdates = scenario === "updates" ? require("./qa-updates").prepare(process.env.OS_HERO_QA_APP || path.resolve(__dirname, "../src/main/main.js")) : null;
 const qaIdle = scenario === "idle" ? require("./qa-idle").prepare(process.env.OS_HERO_QA_APP || path.resolve(__dirname, "../src/main/main.js")) : null;
+const initialGold = fs.existsSync(path.join(profile, "progression.json")) ? JSON.parse(fs.readFileSync(path.join(profile, "progression.json"))).wallet.gold : 17;
 require(process.env.OS_HERO_QA_APP || "../src/main/main");
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const check = (name, value) => { assert.ok(value, name); checks.push(name); };
@@ -114,12 +116,14 @@ app.whenReady().then(async () => {
         check(`native tray frame ${frame} Retina PNG has 78x52 physical pixels`, retina.width === 78 && retina.height === 52);
       }
     }
-    check("existing gold preserved", state.wallet.gold === 17);
-    if (scenario !== "restart") check("legacy items retained; new rewards not owned", state.items.length > 30 && !state.items.some(({ id }) => id === "expedition_star_hat"));
+    check("existing gold preserved", state.wallet.gold === initialGold);
+    if (scenario !== "restart") check("legacy items retained with retired time rewards; new loot starts locked", state.items.length > 30 && state.items.some(({ id }) => id === "expedition_star_hat") && (scenario === "loot-restart" || !state.items.some(({ id }) => id === "meadow_crown")));
     check("canonical icons match hero at same frame", await js("JSON.stringify(Array.from(document.querySelectorAll('[data-canonical-hero]')).map(img=>img.src).every(src=>src===document.querySelector('[data-canonical-hero]').src))") === "true");
     await capture(panel, `${scenario}-desktop.png`);
 
-    if (["hero-new", "hero-new-restart"].includes(scenario)) {
+    if (scenario.startsWith("loot")) {
+      await require("./qa-loot").run({ scenario, panel, BrowserWindow, app, profile, output, check, capture, wait });
+    } else if (["hero-new", "hero-new-restart"].includes(scenario)) {
       await require("./qa-hero-rpg").newUser({ panel, profile, output, check, capture, wait, restart: scenario === "hero-new-restart" });
     } else if (scenario === "hero-rpg") {
       await require("./qa-hero-rpg")({ panel, BrowserWindow, app, profile, output, check, capture, wait });

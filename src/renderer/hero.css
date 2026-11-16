@@ -49,10 +49,10 @@
 .adventure-heading > span { color: var(--accent, #286453); font-size: 13px; }
 .adventure-heading button { margin-left: auto; font-size: 12px; min-height: 26px; padding-block: 3px; }
 .battle-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
-.battle-player, .battle-enemy { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
-.battle-columns .hero-scene { max-width: 210px; }
-.enemy-art { height: 140px; display: flex; align-items: center; justify-content: center; }
-.enemy-art img { width: 160px; height: 140px; object-fit: contain; image-rendering: pixelated; }
+.battle-player, .battle-enemy { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.battle-columns .hero-scene { max-width: 144px; }
+.enemy-art { height: 96px; display: flex; align-items: center; justify-content: center; }
+.enemy-art img { width: 116px; height: 96px; object-fit: contain; image-rendering: pixelated; }
 .battle-columns progress { max-width: 260px; }
 .battle-columns > section > span { color: var(--muted, #61736a); font-size: 12px; }
 #enemy-hp::-webkit-progress-value { background: var(--guild-coral, #df826d); }
@@ -66,18 +66,33 @@
 .hero-page #reward-time { font-size: 11px; color: var(--muted, #61736a); }
 .hero-page .adventure-message:empty { display: none; }
 .hero-page .adventure-message { font-size: 12px; color: var(--muted, #61736a); }
-.adventure-page { gap: 8px; }
+.adventure-page { gap: 6px; }
 .adventure-page .hero-footer { padding-top: 8px; }
 .adventure-quest-actions { display: flex; gap: 6px; align-items: center; }
 .stage-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .stage-choices button { min-height: 40px; white-space: normal; }
+.journey-controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.journey-controls .segmented { flex: 0 1 300px; }
+.journey-controls [aria-pressed="true"] { background: var(--accent); color: white; }
+.loot-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 8px 0; border-block: 1px solid var(--line); font-size: 13px; }
+.loot-summary p { margin: 4px 0; }
+.loot-summary > span { grid-column: 1 / -1; font-size: 12px; }
+#loot-found { display: block; min-height: 18px; }
+.loot-summary button { align-self: center; display: flex; gap: 6px; align-items: center; }
+.loot-collection { display: grid; gap: 8px; }
+.loot-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) minmax(80px, 140px); gap: 10px; align-items: center; border-bottom: 1px solid var(--line); padding: 8px 0; }
+.loot-row img { width: 48px; height: 48px; object-fit: contain; image-rendering: pixelated; }
+.loot-row small { display: block; margin-top: 4px; }
+.loot-row button { white-space: normal; font-size: 12px; }
+@media (max-width: 420px) {
+  .loot-summary { grid-template-columns: minmax(0, 1fr); }
+  .loot-summary button { justify-self: start; }
+  .loot-row { grid-template-columns: 40px minmax(0, 1fr); }
+  .loot-row button { grid-column: 2; justify-self: start; }
+  .loot-row img { width: 40px; height: 40px; }
+}
 .inventory-hair-color { border-top: 1px solid var(--line, #b8c9bd); padding-top: 8px; margin-top: 8px; flex: 0 0 auto; }
 .inventory-hair-color h2 { font-size: 12px; margin: 0 0 6px; }
-@media (min-width: 681px) {
-  .tray-window .guild-inventory .inventory-list { display: flex; flex-direction: column; height: max(190px, calc(100dvh - 254px)); }
-  .tray-window .guild-inventory .inventory-list-heading { flex-shrink: 0; }
-  .tray-window .guild-inventory .item-list { flex: 1; height: auto; min-height: 0; }
-}
 @media (max-width: 680px) {
   .hero-columns { grid-template-columns: minmax(0, 1fr); gap: 20px; }
   .hero-portrait { gap: 6px; }

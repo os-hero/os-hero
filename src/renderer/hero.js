@@ -106,7 +106,7 @@ function renderHeroProfile() {
     <div class="hero-columns"><section class="hero-portrait">${heroScene()}<h2>${escapeHtml(identity.name)} <small>Lv. <span id="hero-level">${stats.level}</span></small></h2>
       <p>${textHtml(stats.level >= 10 ? "hero.master" : stats.level >= 3 ? "hero.explorer" : "hero.rookie")}</p><p>${textHtml("hero.registered")} ${escapeHtml(heroDate(identity.registeredAt))}</p></section>
       <section class="hero-stats"><h2>${textHtml("hero.stats")}</h2><dl>${["strength", "dexterity", "vitality", "luck"].map(key => `<div><dt>${textHtml(`hero.${key}`)}</dt><dd id="stat-${key}">${stats[key]}</dd><dd class="muted">${textHtml(`hero.${key}Hint`)}</dd></div>`).join("")}</dl>
-      <div class="hero-xp"><strong>${textHtml("hero.xp")}</strong><span id="hero-xp-value">${stats.nextXp ? `${stats.xp} / ${stats.nextXp}` : textHtml("hero.levelMax")}</span></div><progress id="hero-xp" max="100" value="${stats.nextXp ? stats.xp : 100}" aria-label="${textHtml("hero.xp")}"></progress></section></div>
+      <div class="hero-xp"><strong>${textHtml("hero.xp")}</strong><span id="hero-xp-value">${stats.nextXp ? `${stats.xp} / ${stats.nextXp}` : textHtml("hero.levelMax")}</span></div><progress id="hero-xp" max="${stats.nextXp || 1}" value="${stats.nextXp ? stats.xp : 1}" aria-label="${textHtml("hero.xp")}"></progress></section></div>
       <section class="hero-journal"><h2>${textHtml("hero.journal")}</h2><ol>${[...journal].reverse().map(entry => `<li><time>${escapeHtml(heroDate(entry.at))}</time><span>${textHtml(entry.kind === "victory" ? "hero.win" : "hero.retreat", { stage: `1-${entry.stage + 1}` })}</span></li>`).join("")}<li><time>${escapeHtml(heroDate(identity.registeredAt))}</time><span>${textHtml("hero.firstMeeting", { name: identity.name })}</span></li></ol></section>
       <footer class="hero-footer"><button id="hero-inventory">${uiIcon("backpack")}${textHtml("tray.inventory")}</button><button id="hero-explore" class="primary-button">${textHtml("hero.toExpedition")}${uiIcon("chevron-right")}</button></footer></div>`;
   startPreviewAnimation(document.getElementById("character-preview"), () => state.character);
@@ -117,12 +117,13 @@ function renderHeroProfile() {
 function renderAdventurePanel() {
   if (document.querySelector(".companion-dialog[open]")) { updateAdventureProgress(); return; }
   const identity = state.character.identity;
-  appRoot.innerHTML = `<div class="hero-page adventure-page"><div class="title-row"><h1 class="window-title">${textHtml("hero.expedition")}</h1><div class="adventure-quest-actions"><button class="text-command" id="adventure-quests">${textHtml("companion.myQuests")}</button><button class="icon-button" id="companion-add" title="${textHtml("companion.add")}" aria-label="${textHtml("companion.add")}">${uiIcon("plus")}</button></div></div>
-    <div class="adventure-heading"><strong>${textHtml("hero.region")} · <span id="adventure-stage"></span></strong><span id="adventure-state"></span><button id="adventure-stage-picker" class="text-command">${textHtml("hero.stageChange")}</button></div>
+  appRoot.innerHTML = `<div class="hero-page adventure-page">
+    <div class="adventure-heading"><strong>${textHtml("hero.region")} · <span id="adventure-stage"></span></strong><span id="adventure-state"></span><button id="adventure-stage-picker" class="text-command">${textHtml("hero.stageChange")}</button><div class="adventure-quest-actions"><button class="text-command" id="adventure-quests">${textHtml("companion.myQuests")}</button><button class="icon-button" id="companion-add" title="${textHtml("companion.add")}" aria-label="${textHtml("companion.add")}">${uiIcon("plus")}</button></div></div>
     <div class="battle-columns"><section class="battle-player">${heroScene("expedition-hero")}<h2>${escapeHtml(identity?.name || text("hero.defaultName"))} <small id="adventure-level"></small></h2><progress id="player-hp" max="40" value="40" aria-label="HP"></progress><span id="player-hp-value"></span></section>
       <section class="battle-enemy"><div class="enemy-art"><img src="../../public/assets/grass-slime.png" alt="${textHtml("hero.slime")}" /></div><h2 id="enemy-name"></h2><progress id="enemy-hp" max="48" value="48" aria-label="${textHtml("hero.slime")} HP"></progress><span id="enemy-hp-value"></span></section></div>
     <div class="adventure-countdown"><span id="adventure-next-label"></span><strong id="adventure-remaining"></strong></div>
-    <div class="expedition-reward adventure-reward"><img id="reward-thumbnail" alt="" /><div class="reward-information"><div class="reward-heading"><span>${textHtml("companion.target")}</span><strong id="reward-name"></strong></div><progress id="reward-progress" max="100" value="0" aria-label="${textHtml("companion.target")}"></progress><span id="reward-time"></span></div><button class="text-command" id="reward-change">${textHtml("companion.change")}</button></div>
+    <div class="journey-controls"><div class="segmented" role="group" aria-label="${textHtml("loot.mode")}">${["advance", "farm"].map(mode => `<button data-journey-mode="${mode}" aria-pressed="false">${textHtml(`loot.${mode}`)}</button>`).join("")}</div><span id="encounter-count"></span></div>
+    <section class="loot-summary"><div><strong>${textHtml("loot.last")}</strong><p id="loot-receipt" role="status"></p><span id="loot-found"></span></div><button id="reward-change">${uiIcon("backpack")}${textHtml("loot.open")}</button><span id="loot-pity"></span></section>
     <p class="adventure-message" id="companion-notice" role="status">${escapeHtml(companionToast)}</p>
     <footer class="hero-footer"><button id="adventure-profile">${uiIcon("house")}${textHtml("hero.nav")}</button><span id="expedition-daily" class="muted"></span><button id="expedition-toggle" class="primary-button" data-companion-action></button></footer>
     <dialog class="companion-dialog" id="companion-dialog"></dialog></div>`;
@@ -130,7 +131,10 @@ function renderAdventurePanel() {
   document.getElementById("adventure-quests").onclick = () => navigateTray("quests");
   document.getElementById("companion-add").onclick = openCompanionQuestForm;
   document.getElementById("adventure-profile").onclick = () => navigateTray("customization");
-  document.getElementById("reward-change").onclick = openRewardPicker;
+  document.getElementById("reward-change").onclick = openLootCollection;
+  document.querySelectorAll("[data-journey-mode]").forEach(button => button.onclick = () => companionAction(async () => {
+    state.expedition = await api.expeditionAction({ action: "mode", mode: button.dataset.journeyMode });
+  }));
   document.getElementById("expedition-toggle").onclick = () => {
     if (!identity) return navigateTray("customization");
     return companionAction(async () => { state.expedition = await api.expeditionAction({ action: state.expedition.running ? "pause" : "start" }); });
@@ -138,7 +142,7 @@ function renderAdventurePanel() {
   document.getElementById("adventure-stage-picker").onclick = () => {
     const dialog = prepareCompanionDialog(text("hero.stageChange"));
     const unlocked = state.expedition.adventure?.unlocked || 0;
-    dialog.querySelector("#dialog-content").innerHTML = `<div class="stage-choices">${Array.from({length: 8}, (_, stage) => `<button data-stage="${stage}" ${stage > unlocked || !identity ? "disabled" : ""}>1-${stage + 1}${stage === 7 ? ` · ${textHtml("hero.boss")}` : ""}</button>`).join("")}</div>`;
+    dialog.querySelector("#dialog-content").innerHTML = `<div class="stage-choices">${Array.from({length: 8}, (_, stage) => `<button data-stage="${stage}" title="${stage > unlocked ? textHtml("loot.locked") : ""}" ${stage > unlocked || !identity || state.expedition.adventure.legacyBattle ? "disabled" : ""}>1-${stage + 1}${[3, 7].includes(stage) ? ` · ${textHtml("hero.boss")}` : ""}</button>`).join("")}</div>`;
     dialog.querySelectorAll("[data-stage]").forEach(button => button.onclick = async () => {
       dialog.querySelectorAll("button").forEach(control => { control.disabled = true; });
       try { state.expedition = await api.selectAdventureStage(Number(button.dataset.stage)); dialog.close(); }
@@ -147,7 +151,7 @@ function renderAdventurePanel() {
     dialog.showModal();
   };
   updateAdventureProgress();
-  if (trayUi.dialog === "reward") openRewardPicker();
+  if (trayUi.dialog === "loot") openLootCollection();
   if (trayUi.dialog === "quest") openCompanionQuestForm();
 }
 
@@ -156,25 +160,60 @@ function updateAdventureProgress() {
   const e = state.expedition, a = e.adventure, b = e.battle;
   const put = (id, value) => { document.getElementById(id).textContent = value; };
   put("adventure-stage", `1-${(a?.stage || 0) + 1}`);
-  put("adventure-state", text(e.running ? a?.restMs ? "hero.resting" : "hero.active" : "hero.paused"));
+  put("adventure-state", text(e.systemPaused ? "loot.systemPaused" : e.running ? a?.restMs ? "hero.resting" : "hero.active" : "hero.paused"));
   put("adventure-level", `Lv. ${b.stats.level}`);
-  put("enemy-name", text(b.enemy.boss ? "hero.boss" : "hero.slime"));
+  put("enemy-name", text(b.enemy.boss ? "hero.boss" : b.kind === "elite" ? "loot.elite" : "hero.slime"));
   for (const [prefix, hp, max] of [["player", b.hp, b.maxHp], ["enemy", b.enemyHp, b.enemy.hp]]) {
     document.getElementById(`${prefix}-hp`).max = max; document.getElementById(`${prefix}-hp`).value = hp;
     put(`${prefix}-hp-value`, `HP ${hp} / ${max}`);
   }
-  put("adventure-next-label", text(a?.restMs ? "hero.recover" : b.outcome === "retreat" ? "hero.untilRetreat" : "hero.nextStage"));
+  put("adventure-next-label", text(a?.restMs ? "hero.recover" : b.outcome === "retreat" ? "hero.untilRetreat" : "loot.nextKill"));
   const seconds = Math.ceil(b.remainingMs / 1000);
   put("adventure-remaining", text("hero.duration", { minutes: Math.floor(seconds / 60), seconds: seconds % 60 }));
-  const reward = e.rewards.find(r => r.id === e.targetId), earned = e.unlocked.includes(reward.id);
-  put("reward-name", itemName({ id: reward.id }));
-  document.getElementById("reward-thumbnail").src = e.thumbnails[reward.id];
-  document.getElementById("reward-progress").value = e.progress[reward.id] / (reward.minutes * 60000) * 100;
-  put("reward-time", earned ? text("hero.targetDone") : text("companion.time", { value: Math.floor(e.progress[reward.id] / 60000), total: reward.minutes }));
-  const capped = e.dailyMs >= e.dailyLimitMs;
-  put("expedition-daily", e.clockBlocked ? text("companion.clock") : capped ? text("companion.limit") : text("companion.daily", { value: Math.floor(e.dailyMs / 60000), total: e.dailyLimitMs / 60000 }));
+  put("encounter-count", text(b.legacy ? "loot.savedBattle" : "loot.encounter", { value: a.counts[a.stage] + 1 }));
+  put("loot-pity", text("loot.pity", { value: e.pityLimit - a.pity }));
+  const receipt = a.lastReward;
+  put("loot-receipt", receipt ? `${text("loot.reward", receipt)} · ${text("loot.level", { value: receipt.level })}` : text("loot.none"));
+  put("loot-found", receipt ? [receipt.itemId, receipt.firstClearId].filter(Boolean).map(id => text("loot.new", { name: itemName({ id }) })).join(" · ") : "");
+  put("expedition-daily", text("loot.kills", { value: a.victories }));
+  document.querySelectorAll("[data-journey-mode]").forEach(button => {
+    button.setAttribute("aria-pressed", button.dataset.journeyMode === a.mode);
+    button.disabled = companionBusy || !state.character.identity;
+  });
   const toggle = document.getElementById("expedition-toggle");
   toggle.innerHTML = `${uiIcon(e.running ? "pause" : "play")}${textHtml(!state.character.identity ? "hero.registerFirst" : e.running ? "hero.pause" : "hero.start")}`;
-  toggle.disabled = companionBusy || (Boolean(state.character.identity) && (capped || e.clockBlocked));
+  toggle.disabled = companionBusy || e.systemPaused;
   if (!state.character.identity) put("companion-notice", text("hero.registerPrompt"));
+  else if (e.saveError) put("companion-notice", text("loot.saveFailed"));
+  else put("companion-notice", companionToast);
+  updateLootCollection();
+}
+
+function openLootCollection() {
+  trayUi.dialog = "loot";
+  const dialog = prepareCompanionDialog(text("loot.title"));
+  dialog.querySelector("#dialog-content").innerHTML = `<p id="loot-odds"></p><p id="loot-guarantee"></p><div class="loot-collection">${state.expedition.rewards.map(item => `<div class="loot-row"><img src="${state.expedition.thumbnails[item.id]}" alt="" /><div><strong>${escapeHtml(itemName(item))}</strong><small data-loot-description="${item.id}"></small></div><button data-loot-buy="${item.id}"></button></div>`).join("")}</div><p class="muted">${textHtml("loot.duplicate")}</p><p id="loot-error" role="status"></p>`;
+  dialog.querySelectorAll("[data-loot-buy]").forEach(button => button.onclick = async () => {
+    if (companionBusy) return;
+    companionBusy = true; updateLootCollection();
+    try { state = await api.buyAdventureItem(button.dataset.lootBuy); document.getElementById("loot-error").textContent = text("loot.purchased"); }
+    catch { document.getElementById("loot-error").textContent = text("hero.saveError"); }
+    finally { companionBusy = false; updateLootCollection(); }
+  });
+  updateLootCollection(); dialog.showModal();
+}
+
+function updateLootCollection() {
+  if (!document.getElementById("loot-odds")) return;
+  const e = state.expedition;
+  document.getElementById("loot-odds").textContent = text("loot.chance", { value: Math.round(e.rareRate * 10000) / 100 });
+  document.getElementById("loot-guarantee").textContent = text("loot.pity", { value: e.pityLimit - e.adventure.pity });
+  for (const item of e.rewards) {
+    const owned = e.unlocked.includes(item.id), button = document.querySelector(`[data-loot-buy="${item.id}"]`);
+    const purchasable = !item.firstClear && e.adventure.cleared[7] && Boolean(state.character.identity);
+    document.querySelector(`[data-loot-description="${item.id}"]`).textContent = text(item.firstClear ? "loot.firstClear" : owned ? "loot.owned" : "loot.individual", { value: Math.round(e.rareRate / Math.max(1, e.remainingPool) * 10000) / 100 });
+    button.hidden = item.firstClear;
+    button.disabled = owned || !purchasable || state.wallet.gold < item.price || companionBusy;
+    button.textContent = text(owned ? "loot.owned" : !purchasable ? "loot.shopLocked" : state.wallet.gold < item.price ? "loot.shortGold" : "loot.buy", { value: item.price });
+  }
 }

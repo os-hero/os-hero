@@ -9,9 +9,11 @@ const RETRY_DELAYS_MS = [15 * 60 * 1000, 60 * 60 * 1000, UPDATE_CHECK_INTERVAL_M
 function newerVersion(a, b) {
   if (!/^\d+\.\d+\.\d+$/.test(a || "")) return false;
   if (!b) return true;
-  const left = a.split(".").map(Number), right = b.split(".").map(Number);
+  const previous = b.match(/^(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?$/);
+  if (!previous) return false;
+  const left = a.split(".").map(Number), right = previous.slice(1, 4).map(Number);
   for (let i = 0; i < 3; i++) if (left[i] !== right[i]) return left[i] > right[i];
-  return false;
+  return Boolean(previous[4]);
 }
 
 let electronAutoUpdater = null;
